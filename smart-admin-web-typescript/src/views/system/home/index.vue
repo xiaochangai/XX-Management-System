@@ -48,10 +48,7 @@
         <!-- <a-col :span="24">
           <HomeQuickEntry />
         </a-col> -->
-        <!--关注公众号-->
-        <a-col :span="24">
-          <OfficialAccountCard />
-        </a-col>
+
         <!--待办、已办-->
         <a-col :span="24">
           <ChangelogCard />
@@ -69,7 +66,7 @@
   import { computed } from 'vue';
   import HomeHeader from './home-header.vue';
   import HomeNotice from './home-notice.vue';
-  import OfficialAccountCard from './components/official-account-card.vue';
+
   import ToBeDoneCard from './components/to-be-done-card/home-to-be-done.vue';
   import ChangelogCard from './components/changelog-card.vue';
   import Category from './components/echarts/category.vue';

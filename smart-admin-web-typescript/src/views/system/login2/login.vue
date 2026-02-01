@@ -12,7 +12,7 @@
   <div class="login-container">
     <div class="box-item desc">
       <div class="welcome">
-        <p>欢迎登录 SmartAdmin V3</p>
+        <p>欢迎登录 Management-System</p>
         <p class="sub-welcome">「高质量代码、简洁、安全」的开发平台</p>
       </div>
     </div>
@@ -58,12 +58,6 @@
           <p class="line"></p>
         </div>
         <div class="login-type">
-          <img :src="wechatIcon" />
-          <img :src="aliIcon" />
-          <img :src="douyinIcon" />
-          <img :src="qqIcon" />
-          <img :src="weiboIcon" />
-          <img :src="feishuIcon" />
           <img :src="googleIcon" />
         </div>
       </div>
