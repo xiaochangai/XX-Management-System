@@ -5,9 +5,9 @@
  "scripts": {
  "localhost": "vite --mode localhost",
  "dev": "vite",
- "build:test": "vite build --base=/admin/ --mode test",
+ "build:test": "vite build --mode test",
  "build:pre": "vite build --mode pre",
- "build:prod": "vite build --mode production"
+ "build:prod": "vite build --mode prod"
  },
  "type": "module",
  "dependencies": {

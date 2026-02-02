@@ -13,7 +13,7 @@ project:
 server:
   port: 1024
   servlet:
-    context-path: /
+    context-path: /manager
 
 # 环境
 spring:
