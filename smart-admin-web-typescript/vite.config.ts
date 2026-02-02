@@ -26,21 +26,19 @@ export default {
  },
  ],
  },
- // 服务端渲染
- server: {
- host: '0.0.0.0',
- port: 8081,
- server: {
- proxy: {
- // 代理路径
- '/': {
- target: 'http://127.0.0.1:1024/', // 目标服务器地址
- changeOrigin: true, // 是否修改请求头中的 Origin 字段
- rewrite: (path) => path, // 重写路径
- },
- },
- }
- },
+  // 服务端渲染
+  server: {
+    host: '0.0.0.0',
+    port: 8081,
+    proxy: {
+      '/api': {
+        target: 'https://manage.9454321.xyz:8443',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
  plugins: [vue()],
  optimizeDeps: {
  include: ['ant-design-vue/es/locale/zh_CN', 'dayjs/locale/zh-cn', 'ant-design-vue/es/locale/en_US'],
