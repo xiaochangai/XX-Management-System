@@ -32,7 +32,7 @@ export default {
     port: 8081,
     proxy: {
       '/api': {
-        target: 'https://manage.9454321.xyz:8443',
+        target: process.env.VITE_APP_API_URL || 'http://127.0.0.1:1024',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
