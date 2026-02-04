@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.lab1024.sa.admin.module.business.oa.okr.dao.OkrObjectiveDao">
+
+    <sql id="base_columns">
+        t_okr_objective.objective_id,
+        t_okr_objective.period_id,
+        t_okr_objective.parent_objective_id,
+        t_okr_objective.owner_employee_id,
+        t_okr_objective.title,
+        t_okr_objective.description,
+        t_okr_objective.progress,
+        t_okr_objective.confidence,
+        t_okr_objective.status,
+        t_okr_objective.deleted_flag,
+        t_okr_objective.create_user_id,
+        t_okr_objective.update_time,
+        t_okr_objective.create_time
+    </sql>
+
+    <select id="query" resultType="net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveVO">
+        select
+        <include refid="base_columns"/>,
+        t_okr_period.period_name as periodName,
+        t_employee.actual_name as ownerName,
+        parent.title as parentObjectiveTitle,
+        (select count(*) from t_okr_key_result kr where kr.objective_id = t_okr_objective.objective_id and kr.deleted_flag = 0) as keyResultCount
+        from t_okr_objective
+        left join t_okr_period on t_okr_objective.period_id = t_okr_period.period_id
+        left join t_employee on t_okr_objective.owner_employee_id = t_employee.employee_id
+        left join t_okr_objective parent on t_okr_objective.parent_objective_id = parent.objective_id
+        <where>
+            <if test="queryForm.deletedFlag != null">
+                and t_okr_objective.deleted_flag = #{queryForm.deletedFlag}
+            </if>
+            <if test="queryForm.periodId != null">
+                and t_okr_objective.period_id = #{queryForm.periodId}
+            </if>
+            <if test="queryForm.ownerEmployeeId != null">
+                and t_okr_objective.owner_employee_id = #{queryForm.ownerEmployeeId}
+            </if>
+            <if test="queryForm.status != null">
+                and t_okr_objective.status = #{queryForm.status}
+            </if>
+            <if test="queryForm.keywords != null and queryForm.keywords != ''">
+                and (instr(t_okr_objective.title, #{queryForm.keywords})
+                or instr(t_okr_objective.description, #{queryForm.keywords}))
+            </if>
+        </where>
+        order by t_okr_objective.update_time desc, t_okr_objective.objective_id desc
+    </select>
+
+    <select id="getDetail" resultType="net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveDetailVO">
+        select
+        <include refid="base_columns"/>,
+        t_okr_period.period_name as periodName,
+        t_employee.actual_name as ownerName,
+        parent.title as parentObjectiveTitle
+        from t_okr_objective
+        left join t_okr_period on t_okr_objective.period_id = t_okr_period.period_id
+        left join t_employee on t_okr_objective.owner_employee_id = t_employee.employee_id
+        left join t_okr_objective parent on t_okr_objective.parent_objective_id = parent.objective_id
+        where t_okr_objective.objective_id = #{objectiveId}
+          and t_okr_objective.deleted_flag = #{deletedFlag}
+    </select>
+
+    <select id="querySimpleList" resultType="net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveSimpleVO">
+        select
+            t_okr_objective.objective_id,
+            t_okr_objective.title
+        from t_okr_objective
+        <where>
+            <if test="deletedFlag != null">
+                and t_okr_objective.deleted_flag = #{deletedFlag}
+            </if>
+            <if test="periodId != null">
+                and t_okr_objective.period_id = #{periodId}
+            </if>
+        </where>
+        order by t_okr_objective.update_time desc, t_okr_objective.objective_id desc
+    </select>
+
+</mapper>

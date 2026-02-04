@@ -28,6 +28,8 @@ export const TABLE_ID_CONST = {
       ENTERPRISE_EMPLOYEE: businessOAInitTableId + 3, //企业员工
       ENTERPRISE_BANK: businessOAInitTableId + 4, //企业银行
       ENTERPRISE_INVOICE: businessOAInitTableId + 5, //企业发票
+      OKR_PERIOD: businessOAInitTableId + 6, //OKR周期
+      OKR_OBJECTIVE: businessOAInitTableId + 7, //OKR目标
     },
     ERP: {
       GOODS: businessERPInitTableId + 1, //商品管理

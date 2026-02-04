@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.lab1024.sa.admin.module.business.oa.okr.dao.OkrKeyResultDao">
+
+    <sql id="base_columns">
+        t_okr_key_result.key_result_id,
+        t_okr_key_result.objective_id,
+        t_okr_key_result.title,
+        t_okr_key_result.metric_name,
+        t_okr_key_result.start_value,
+        t_okr_key_result.target_value,
+        t_okr_key_result.current_value,
+        t_okr_key_result.unit,
+        t_okr_key_result.progress,
+        t_okr_key_result.weight,
+        t_okr_key_result.confidence,
+        t_okr_key_result.status,
+        t_okr_key_result.sort,
+        t_okr_key_result.deleted_flag,
+        t_okr_key_result.create_user_id,
+        t_okr_key_result.update_time,
+        t_okr_key_result.create_time
+    </sql>
+
+    <select id="queryByObjectiveId" resultType="net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrKeyResultVO">
+        select
+        <include refid="base_columns"/>
+        from t_okr_key_result
+        where t_okr_key_result.objective_id = #{objectiveId}
+          and t_okr_key_result.deleted_flag = #{deletedFlag}
+        order by t_okr_key_result.sort asc, t_okr_key_result.key_result_id desc
+    </select>
+
+    <update id="updateDeletedByObjectiveId">
+        update t_okr_key_result
+        set deleted_flag = #{deletedFlag}
+        where objective_id = #{objectiveId}
+    </update>
+
+    <update id="updateDeletedFlag">
+        update t_okr_key_result
+        set deleted_flag = #{deletedFlag}
+        where key_result_id = #{keyResultId}
+    </update>
+
+</mapper>
