@@ -16,6 +16,10 @@
         t_okr_key_result.confidence,
         t_okr_key_result.status,
         t_okr_key_result.sort,
+        t_okr_key_result.score,
+        t_okr_key_result.review_note,
+        t_okr_key_result.review_user_id,
+        t_okr_key_result.review_time,
         t_okr_key_result.deleted_flag,
         t_okr_key_result.create_user_id,
         t_okr_key_result.update_time,
@@ -24,8 +28,10 @@
 
     <select id="queryByObjectiveId" resultType="net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrKeyResultVO">
         select
-        <include refid="base_columns"/>
+        <include refid="base_columns"/>,
+        review_employee.actual_name as reviewUserName
         from t_okr_key_result
+        left join t_employee review_employee on t_okr_key_result.review_user_id = review_employee.employee_id
         where t_okr_key_result.objective_id = #{objectiveId}
           and t_okr_key_result.deleted_flag = #{deletedFlag}
         order by t_okr_key_result.sort asc, t_okr_key_result.key_result_id desc

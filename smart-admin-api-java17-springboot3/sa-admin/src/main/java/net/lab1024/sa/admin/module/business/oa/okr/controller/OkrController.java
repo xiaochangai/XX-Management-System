@@ -7,10 +7,13 @@ import jakarta.annotation.Resource;
 import jakarta.validation.Valid;
 import net.lab1024.sa.admin.constant.AdminSwaggerTagConst;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.form.*;
+import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrCheckinVO;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveDetailVO;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveSimpleVO;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveVO;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrPeriodVO;
+import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrReviewSummaryVO;
+import net.lab1024.sa.admin.module.business.oa.okr.service.OkrCheckinService;
 import net.lab1024.sa.admin.module.business.oa.okr.service.OkrKeyResultService;
 import net.lab1024.sa.admin.module.business.oa.okr.service.OkrObjectiveService;
 import net.lab1024.sa.admin.module.business.oa.okr.service.OkrPeriodService;
@@ -39,6 +42,9 @@ public class OkrController {
 
     @Resource
     private OkrKeyResultService okrKeyResultService;
+
+    @Resource
+    private OkrCheckinService okrCheckinService;
 
     // ============================ 周期 ============================
 
@@ -103,6 +109,20 @@ public class OkrController {
         return okrObjectiveService.simpleList(periodId);
     }
 
+    @Operation(summary = "OKR目标-对齐列表")
+    @GetMapping("/oa/okr/objective/align-list/{objectiveId}")
+    @SaCheckPermission("oa:okr:objective:detail")
+    public ResponseDTO<List<OkrObjectiveVO>> objectiveAlignedList(@PathVariable Long objectiveId) {
+        return okrObjectiveService.alignedList(objectiveId);
+    }
+
+    @Operation(summary = "OKR周期-复盘汇总")
+    @GetMapping("/oa/okr/review/summary/{periodId}")
+    @SaCheckPermission("oa:okr:review:summary")
+    public ResponseDTO<OkrReviewSummaryVO> reviewSummary(@PathVariable Long periodId) {
+        return okrObjectiveService.reviewSummary(periodId);
+    }
+
     @Operation(summary = "OKR目标-新增")
     @PostMapping("/oa/okr/objective/add")
     @RepeatSubmit
@@ -125,6 +145,15 @@ public class OkrController {
     @SaCheckPermission("oa:okr:objective:delete")
     public ResponseDTO<String> deleteObjective(@PathVariable Long objectiveId) {
         return okrObjectiveService.delete(objectiveId);
+    }
+
+    @Operation(summary = "OKR目标-评分/复盘")
+    @PostMapping("/oa/okr/objective/review")
+    @RepeatSubmit
+    @SaCheckPermission("oa:okr:review:objective")
+    public ResponseDTO<String> reviewObjective(@RequestBody @Valid OkrObjectiveReviewForm reviewForm) {
+        reviewForm.setReviewUserId(SmartRequestUtil.getRequestUserId());
+        return okrObjectiveService.review(reviewForm);
     }
 
     // ============================ 关键结果 ============================
@@ -151,5 +180,32 @@ public class OkrController {
     @SaCheckPermission("oa:okr:kr:delete")
     public ResponseDTO<String> deleteKeyResult(@PathVariable Long keyResultId) {
         return okrKeyResultService.delete(keyResultId);
+    }
+
+    @Operation(summary = "OKR关键结果-评分/复盘")
+    @PostMapping("/oa/okr/key-result/review")
+    @RepeatSubmit
+    @SaCheckPermission("oa:okr:review:kr")
+    public ResponseDTO<String> reviewKeyResult(@RequestBody @Valid OkrKeyResultReviewForm reviewForm) {
+        reviewForm.setReviewUserId(SmartRequestUtil.getRequestUserId());
+        return okrKeyResultService.review(reviewForm);
+    }
+
+    // ============================ 进展更新 ============================
+
+    @Operation(summary = "OKR进展更新-查询")
+    @GetMapping("/oa/okr/checkin/query/{objectiveId}")
+    @SaCheckPermission("oa:okr:checkin:query")
+    public ResponseDTO<List<OkrCheckinVO>> queryCheckin(@PathVariable Long objectiveId) {
+        return okrCheckinService.queryByObjectiveId(objectiveId);
+    }
+
+    @Operation(summary = "OKR进展更新-新增")
+    @PostMapping("/oa/okr/checkin/add")
+    @RepeatSubmit
+    @SaCheckPermission("oa:okr:checkin:add")
+    public ResponseDTO<String> addCheckin(@RequestBody @Valid OkrCheckinAddForm addForm) {
+        addForm.setCreateUserId(SmartRequestUtil.getRequestUserId());
+        return okrCheckinService.add(addForm);
     }
 }

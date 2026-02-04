@@ -6,6 +6,7 @@ import net.lab1024.sa.admin.module.business.oa.okr.dao.OkrObjectiveDao;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.entity.OkrKeyResultEntity;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.entity.OkrObjectiveEntity;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.form.OkrKeyResultAddForm;
+import net.lab1024.sa.admin.module.business.oa.okr.domain.form.OkrKeyResultReviewForm;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.form.OkrKeyResultUpdateForm;
 import net.lab1024.sa.base.common.domain.ResponseDTO;
 import net.lab1024.sa.base.common.util.SmartBeanUtil;
@@ -69,6 +70,18 @@ public class OkrKeyResultService {
         entity.setCurrentValue(defaultIfNull(entity.getCurrentValue()));
         entity.setStartValue(defaultIfNull(entity.getStartValue()));
         entity.setProgress(calculateProgress(entity.getStartValue(), entity.getTargetValue(), entity.getCurrentValue()));
+        if (entity.getScore() == null) {
+            entity.setScore(db.getScore());
+        }
+        if (entity.getReviewNote() == null) {
+            entity.setReviewNote(db.getReviewNote());
+        }
+        if (entity.getReviewUserId() == null) {
+            entity.setReviewUserId(db.getReviewUserId());
+        }
+        if (entity.getReviewTime() == null) {
+            entity.setReviewTime(db.getReviewTime());
+        }
         okrKeyResultDao.updateById(entity);
         okrObjectiveService.recalculateObjectiveProgress(updateForm.getObjectiveId());
         if (!Objects.equals(db.getObjectiveId(), updateForm.getObjectiveId())) {
@@ -88,6 +101,30 @@ public class OkrKeyResultService {
         }
         okrKeyResultDao.updateDeletedFlag(keyResultId, Boolean.TRUE);
         okrObjectiveService.recalculateObjectiveProgress(db.getObjectiveId());
+        return ResponseDTO.ok();
+    }
+
+    /**
+     * 关键结果评分/复盘
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public ResponseDTO<String> review(OkrKeyResultReviewForm reviewForm) {
+        OkrKeyResultEntity db = okrKeyResultDao.selectById(reviewForm.getKeyResultId());
+        if (db == null || Boolean.TRUE.equals(db.getDeletedFlag())) {
+            return ResponseDTO.userErrorParam("关键结果不存在");
+        }
+        if (reviewForm.getScore() == null
+                || reviewForm.getScore().compareTo(BigDecimal.ZERO) < 0
+                || reviewForm.getScore().compareTo(BigDecimal.ONE) > 0) {
+            return ResponseDTO.userErrorParam("评分范围为0-1");
+        }
+        OkrKeyResultEntity update = new OkrKeyResultEntity();
+        update.setKeyResultId(reviewForm.getKeyResultId());
+        update.setScore(reviewForm.getScore());
+        update.setReviewNote(reviewForm.getReviewNote());
+        update.setReviewUserId(reviewForm.getReviewUserId());
+        update.setReviewTime(java.time.LocalDateTime.now());
+        okrKeyResultDao.updateById(update);
         return ResponseDTO.ok();
     }
 

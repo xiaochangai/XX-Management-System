@@ -28,6 +28,12 @@ export const okrApi = {
   getObjectiveDetail(objectiveId) {
     return getRequest(`/oa/okr/objective/detail/${objectiveId}`);
   },
+  getObjectiveAlignedList(objectiveId) {
+    return getRequest(`/oa/okr/objective/align-list/${objectiveId}`);
+  },
+  getReviewSummary(periodId) {
+    return getRequest(`/oa/okr/review/summary/${periodId}`);
+  },
   getObjectiveSimpleList(periodId) {
     let url = '/oa/okr/objective/simple-list';
     if (periodId) {
@@ -44,6 +50,9 @@ export const okrApi = {
   deleteObjective(objectiveId) {
     return getRequest(`/oa/okr/objective/delete/${objectiveId}`);
   },
+  reviewObjective(param) {
+    return postRequest('/oa/okr/objective/review', param);
+  },
 
   // ---------------- 关键结果 ----------------
   addKeyResult(param) {
@@ -54,5 +63,16 @@ export const okrApi = {
   },
   deleteKeyResult(keyResultId) {
     return getRequest(`/oa/okr/key-result/delete/${keyResultId}`);
+  },
+  reviewKeyResult(param) {
+    return postRequest('/oa/okr/key-result/review', param);
+  },
+
+  // ---------------- 进展更新 ----------------
+  queryCheckin(objectiveId) {
+    return getRequest(`/oa/okr/checkin/query/${objectiveId}`);
+  },
+  addCheckin(param) {
+    return postRequest('/oa/okr/checkin/add', param);
   },
 };

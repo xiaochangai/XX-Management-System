@@ -32,4 +32,14 @@ public interface OkrObjectiveDao extends BaseMapper<OkrObjectiveEntity> {
      * 目标简要列表
      */
     List<OkrObjectiveSimpleVO> querySimpleList(@Param("periodId") Long periodId, @Param("deletedFlag") Boolean deletedFlag);
+
+    /**
+     * 查询对齐目标列表
+     */
+    List<OkrObjectiveVO> queryAlignedList(@Param("parentObjectiveId") Long parentObjectiveId, @Param("deletedFlag") Boolean deletedFlag);
+
+    /**
+     * 查询周期复盘目标列表
+     */
+    List<OkrObjectiveVO> queryByPeriod(@Param("periodId") Long periodId, @Param("deletedFlag") Boolean deletedFlag);
 }

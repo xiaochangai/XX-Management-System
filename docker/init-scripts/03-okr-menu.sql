@@ -28,6 +28,20 @@ SELECT 'OKR周期', 2, @oa_parent_id, '/oa/okr/okr-period-list', '/business/oa/o
 WHERE @okr_period_menu_id IS NULL;
 SELECT t_menu.menu_id INTO @okr_period_menu_id FROM t_menu WHERE t_menu.menu_name = 'OKR周期' AND t_menu.parent_id = @oa_parent_id AND t_menu.deleted_flag = 0 ORDER BY t_menu.menu_id LIMIT 1;
 
+-- 4.1) OKR对齐视图 菜单
+SET @okr_map_menu_id = NULL;
+SELECT t_menu.menu_id INTO @okr_map_menu_id FROM t_menu WHERE t_menu.menu_name = 'OKR对齐视图' AND t_menu.parent_id = @oa_parent_id AND t_menu.deleted_flag = 0 ORDER BY t_menu.menu_id LIMIT 1;
+INSERT INTO t_menu (menu_name, menu_type, parent_id, path, component, frame_flag, cache_flag, visible_flag, disabled_flag, perms_type, create_user_id)
+SELECT 'OKR对齐视图', 2, @oa_parent_id, '/oa/okr/okr-map', '/business/oa/okr/okr-map.vue', false, false, true, false, 1, 1
+WHERE @okr_map_menu_id IS NULL;
+
+-- 4.2) OKR复盘汇总 菜单
+SET @okr_review_menu_id = NULL;
+SELECT t_menu.menu_id INTO @okr_review_menu_id FROM t_menu WHERE t_menu.menu_name = 'OKR复盘汇总' AND t_menu.parent_id = @oa_parent_id AND t_menu.deleted_flag = 0 ORDER BY t_menu.menu_id LIMIT 1;
+INSERT INTO t_menu (menu_name, menu_type, parent_id, path, component, frame_flag, cache_flag, visible_flag, disabled_flag, perms_type, create_user_id)
+SELECT 'OKR复盘汇总', 2, @oa_parent_id, '/oa/okr/okr-review-summary', '/business/oa/okr/okr-review-summary.vue', false, false, true, false, 1, 1
+WHERE @okr_review_menu_id IS NULL;
+
 -- 5) OKR目标权限
 INSERT INTO t_menu (menu_name, menu_type, parent_id, frame_flag, cache_flag, visible_flag, disabled_flag, perms_type, api_perms, web_perms, context_menu_id, create_user_id)
 SELECT '查询', 3, @okr_menu_id, false, false, true, false, 1, 'oa:okr:objective:query', 'oa:okr:objective:query', @okr_menu_id, 1
@@ -61,6 +75,28 @@ WHERE NOT EXISTS (SELECT 1 FROM t_menu WHERE menu_name = '更新关键结果' AN
 INSERT INTO t_menu (menu_name, menu_type, parent_id, frame_flag, cache_flag, visible_flag, disabled_flag, perms_type, api_perms, web_perms, context_menu_id, create_user_id)
 SELECT '删除关键结果', 3, @okr_menu_id, false, false, true, false, 1, 'oa:okr:kr:delete', 'oa:okr:kr:delete', @okr_menu_id, 1
 WHERE NOT EXISTS (SELECT 1 FROM t_menu WHERE menu_name = '删除关键结果' AND api_perms = 'oa:okr:kr:delete' AND parent_id = @okr_menu_id);
+
+-- 6.0) 复盘评分权限
+INSERT INTO t_menu (menu_name, menu_type, parent_id, frame_flag, cache_flag, visible_flag, disabled_flag, perms_type, api_perms, web_perms, context_menu_id, create_user_id)
+SELECT '目标复盘评分', 3, @okr_menu_id, false, false, true, false, 1, 'oa:okr:review:objective', 'oa:okr:review:objective', @okr_menu_id, 1
+WHERE NOT EXISTS (SELECT 1 FROM t_menu WHERE menu_name = '目标复盘评分' AND api_perms = 'oa:okr:review:objective' AND parent_id = @okr_menu_id);
+
+INSERT INTO t_menu (menu_name, menu_type, parent_id, frame_flag, cache_flag, visible_flag, disabled_flag, perms_type, api_perms, web_perms, context_menu_id, create_user_id)
+SELECT '关键结果复盘评分', 3, @okr_menu_id, false, false, true, false, 1, 'oa:okr:review:kr', 'oa:okr:review:kr', @okr_menu_id, 1
+WHERE NOT EXISTS (SELECT 1 FROM t_menu WHERE menu_name = '关键结果复盘评分' AND api_perms = 'oa:okr:review:kr' AND parent_id = @okr_menu_id);
+
+INSERT INTO t_menu (menu_name, menu_type, parent_id, frame_flag, cache_flag, visible_flag, disabled_flag, perms_type, api_perms, web_perms, context_menu_id, create_user_id)
+SELECT '复盘汇总查询', 3, @okr_menu_id, false, false, true, false, 1, 'oa:okr:review:summary', 'oa:okr:review:summary', @okr_menu_id, 1
+WHERE NOT EXISTS (SELECT 1 FROM t_menu WHERE menu_name = '复盘汇总查询' AND api_perms = 'oa:okr:review:summary' AND parent_id = @okr_menu_id);
+
+-- 6.1) 进展更新权限
+INSERT INTO t_menu (menu_name, menu_type, parent_id, frame_flag, cache_flag, visible_flag, disabled_flag, perms_type, api_perms, web_perms, context_menu_id, create_user_id)
+SELECT '进展更新查询', 3, @okr_menu_id, false, false, true, false, 1, 'oa:okr:checkin:query', 'oa:okr:checkin:query', @okr_menu_id, 1
+WHERE NOT EXISTS (SELECT 1 FROM t_menu WHERE menu_name = '进展更新查询' AND api_perms = 'oa:okr:checkin:query' AND parent_id = @okr_menu_id);
+
+INSERT INTO t_menu (menu_name, menu_type, parent_id, frame_flag, cache_flag, visible_flag, disabled_flag, perms_type, api_perms, web_perms, context_menu_id, create_user_id)
+SELECT '进展更新新增', 3, @okr_menu_id, false, false, true, false, 1, 'oa:okr:checkin:add', 'oa:okr:checkin:add', @okr_menu_id, 1
+WHERE NOT EXISTS (SELECT 1 FROM t_menu WHERE menu_name = '进展更新新增' AND api_perms = 'oa:okr:checkin:add' AND parent_id = @okr_menu_id);
 
 -- 7) OKR周期权限
 INSERT INTO t_menu (menu_name, menu_type, parent_id, frame_flag, cache_flag, visible_flag, disabled_flag, perms_type, api_perms, web_perms, context_menu_id, create_user_id)

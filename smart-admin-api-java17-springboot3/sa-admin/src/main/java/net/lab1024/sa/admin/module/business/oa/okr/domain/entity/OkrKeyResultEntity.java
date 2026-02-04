@@ -42,6 +42,26 @@ public class OkrKeyResultEntity {
 
     private Integer sort;
 
+    /**
+     * 评分
+     */
+    private BigDecimal score;
+
+    /**
+     * 复盘说明
+     */
+    private String reviewNote;
+
+    /**
+     * 复盘人
+     */
+    private Long reviewUserId;
+
+    /**
+     * 复盘时间
+     */
+    private LocalDateTime reviewTime;
+
     private Boolean deletedFlag;
 
     private Long createUserId;

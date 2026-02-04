@@ -55,6 +55,12 @@
         <a-button @click="toPeriodManage" type="default">
           周期管理
         </a-button>
+        <a-button @click="toOkrMap" type="default">
+          对齐视图
+        </a-button>
+        <a-button @click="toReviewSummary" type="default">
+          复盘汇总
+        </a-button>
       </div>
       <div class="smart-table-setting-block">
         <TableOperator v-model="columns" :tableId="TABLE_ID_CONST.BUSINESS.OA.OKR_OBJECTIVE" :refresh="queryList" />
@@ -77,11 +83,14 @@
         <template v-if="column.dataIndex === 'progress'">
           <a-progress :percent="Number(text || 0)" size="small" />
         </template>
+        <template v-if="column.dataIndex === 'score'">
+          {{ formatScore(text) }}
+        </template>
         <template v-if="column.dataIndex === 'status'">
-          {{ $smartEnumPlugin.getDescByValue('OKR_STATUS_ENUM', text) }}
+          <a-tag :color="statusColor(text)">{{ $smartEnumPlugin.getDescByValue('OKR_STATUS_ENUM', text) }}</a-tag>
         </template>
         <template v-if="column.dataIndex === 'confidence'">
-          {{ $smartEnumPlugin.getDescByValue('OKR_CONFIDENCE_ENUM', text) }}
+          <a-tag color="geekblue">{{ $smartEnumPlugin.getDescByValue('OKR_CONFIDENCE_ENUM', text) }}</a-tag>
         </template>
         <template v-if="column.dataIndex === 'action'">
           <div class="smart-table-operate">
@@ -149,6 +158,11 @@
       title: '进度',
       dataIndex: 'progress',
       width: 120,
+    },
+    {
+      title: '评分',
+      dataIndex: 'score',
+      width: 80,
     },
     {
       title: '状态',
@@ -247,11 +261,47 @@
     });
   }
 
+  function toOkrMap() {
+    router.push({
+      path: '/oa/okr/okr-map',
+    });
+  }
+
+  function toReviewSummary() {
+    router.push({
+      path: '/oa/okr/okr-review-summary',
+    });
+  }
+
   function confirmDelete(objectiveId) {
     Modal.confirm({
       title: '确认删除该目标吗？',
       onOk: () => deleteObjective(objectiveId),
     });
+  }
+
+  function statusColor(value) {
+    switch (value) {
+      case 1:
+        return 'blue';
+      case 2:
+        return 'orange';
+      case 3:
+        return 'red';
+      case 4:
+        return 'green';
+      case 5:
+        return 'default';
+      default:
+        return 'default';
+    }
+  }
+
+  function formatScore(value) {
+    if (value === null || value === undefined) {
+      return '—';
+    }
+    return Number(value).toFixed(2);
   }
 
   async function deleteObjective(objectiveId) {

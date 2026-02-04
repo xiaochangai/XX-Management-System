@@ -12,6 +12,10 @@
         t_okr_objective.progress,
         t_okr_objective.confidence,
         t_okr_objective.status,
+        t_okr_objective.score,
+        t_okr_objective.review_note,
+        t_okr_objective.review_user_id,
+        t_okr_objective.review_time,
         t_okr_objective.deleted_flag,
         t_okr_objective.create_user_id,
         t_okr_objective.update_time,
@@ -23,11 +27,13 @@
         <include refid="base_columns"/>,
         t_okr_period.period_name as periodName,
         t_employee.actual_name as ownerName,
+        review_employee.actual_name as reviewUserName,
         parent.title as parentObjectiveTitle,
         (select count(*) from t_okr_key_result kr where kr.objective_id = t_okr_objective.objective_id and kr.deleted_flag = 0) as keyResultCount
         from t_okr_objective
         left join t_okr_period on t_okr_objective.period_id = t_okr_period.period_id
         left join t_employee on t_okr_objective.owner_employee_id = t_employee.employee_id
+        left join t_employee review_employee on t_okr_objective.review_user_id = review_employee.employee_id
         left join t_okr_objective parent on t_okr_objective.parent_objective_id = parent.objective_id
         <where>
             <if test="queryForm.deletedFlag != null">
@@ -55,10 +61,12 @@
         <include refid="base_columns"/>,
         t_okr_period.period_name as periodName,
         t_employee.actual_name as ownerName,
+        review_employee.actual_name as reviewUserName,
         parent.title as parentObjectiveTitle
         from t_okr_objective
         left join t_okr_period on t_okr_objective.period_id = t_okr_period.period_id
         left join t_employee on t_okr_objective.owner_employee_id = t_employee.employee_id
+        left join t_employee review_employee on t_okr_objective.review_user_id = review_employee.employee_id
         left join t_okr_objective parent on t_okr_objective.parent_objective_id = parent.objective_id
         where t_okr_objective.objective_id = #{objectiveId}
           and t_okr_objective.deleted_flag = #{deletedFlag}
@@ -77,6 +85,42 @@
                 and t_okr_objective.period_id = #{periodId}
             </if>
         </where>
+        order by t_okr_objective.update_time desc, t_okr_objective.objective_id desc
+    </select>
+
+    <select id="queryAlignedList" resultType="net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveVO">
+        select
+        <include refid="base_columns"/>,
+        t_okr_period.period_name as periodName,
+        t_employee.actual_name as ownerName,
+        review_employee.actual_name as reviewUserName,
+        parent.title as parentObjectiveTitle,
+        (select count(*) from t_okr_key_result kr where kr.objective_id = t_okr_objective.objective_id and kr.deleted_flag = 0) as keyResultCount
+        from t_okr_objective
+        left join t_okr_period on t_okr_objective.period_id = t_okr_period.period_id
+        left join t_employee on t_okr_objective.owner_employee_id = t_employee.employee_id
+        left join t_employee review_employee on t_okr_objective.review_user_id = review_employee.employee_id
+        left join t_okr_objective parent on t_okr_objective.parent_objective_id = parent.objective_id
+        where t_okr_objective.parent_objective_id = #{parentObjectiveId}
+          and t_okr_objective.deleted_flag = #{deletedFlag}
+        order by t_okr_objective.update_time desc, t_okr_objective.objective_id desc
+    </select>
+
+    <select id="queryByPeriod" resultType="net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveVO">
+        select
+        <include refid="base_columns"/>,
+        t_okr_period.period_name as periodName,
+        t_employee.actual_name as ownerName,
+        review_employee.actual_name as reviewUserName,
+        parent.title as parentObjectiveTitle,
+        (select count(*) from t_okr_key_result kr where kr.objective_id = t_okr_objective.objective_id and kr.deleted_flag = 0) as keyResultCount
+        from t_okr_objective
+        left join t_okr_period on t_okr_objective.period_id = t_okr_period.period_id
+        left join t_employee on t_okr_objective.owner_employee_id = t_employee.employee_id
+        left join t_employee review_employee on t_okr_objective.review_user_id = review_employee.employee_id
+        left join t_okr_objective parent on t_okr_objective.parent_objective_id = parent.objective_id
+        where t_okr_objective.period_id = #{periodId}
+          and t_okr_objective.deleted_flag = #{deletedFlag}
         order by t_okr_objective.update_time desc, t_okr_objective.objective_id desc
     </select>
 

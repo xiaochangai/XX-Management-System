@@ -37,6 +37,16 @@ public class OkrObjectiveVO {
 
     private Integer keyResultCount;
 
+    private BigDecimal score;
+
+    private String reviewNote;
+
+    private Long reviewUserId;
+
+    private String reviewUserName;
+
+    private LocalDateTime reviewTime;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

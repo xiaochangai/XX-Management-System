@@ -10,11 +10,14 @@ import net.lab1024.sa.admin.module.business.oa.okr.domain.entity.OkrObjectiveEnt
 import net.lab1024.sa.admin.module.business.oa.okr.domain.entity.OkrPeriodEntity;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.form.OkrObjectiveAddForm;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.form.OkrObjectiveQueryForm;
+import net.lab1024.sa.admin.module.business.oa.okr.domain.form.OkrObjectiveReviewForm;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.form.OkrObjectiveUpdateForm;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrKeyResultVO;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveDetailVO;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveSimpleVO;
 import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrObjectiveVO;
+import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrReviewScoreBucketVO;
+import net.lab1024.sa.admin.module.business.oa.okr.domain.vo.OkrReviewSummaryVO;
 import net.lab1024.sa.admin.module.system.employee.dao.EmployeeDao;
 import net.lab1024.sa.admin.module.system.employee.domain.entity.EmployeeEntity;
 import net.lab1024.sa.base.common.domain.PageResult;
@@ -27,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -79,6 +83,113 @@ public class OkrObjectiveService {
     }
 
     /**
+     * 查询对齐目标
+     */
+    public ResponseDTO<List<OkrObjectiveVO>> alignedList(Long parentObjectiveId) {
+        if (parentObjectiveId == null) {
+            return ResponseDTO.ok(List.of());
+        }
+        return ResponseDTO.ok(okrObjectiveDao.queryAlignedList(parentObjectiveId, Boolean.FALSE));
+    }
+
+    /**
+     * 周期复盘汇总
+     */
+    public ResponseDTO<OkrReviewSummaryVO> reviewSummary(Long periodId) {
+        OkrPeriodEntity period = okrPeriodDao.selectById(periodId);
+        if (period == null || Boolean.TRUE.equals(period.getDeletedFlag())) {
+            return ResponseDTO.userErrorParam("周期不存在");
+        }
+
+        List<OkrObjectiveVO> objectiveList = okrObjectiveDao.queryByPeriod(periodId, Boolean.FALSE);
+        int total = objectiveList.size();
+        int scoredCount = 0;
+        BigDecimal totalScore = BigDecimal.ZERO;
+        BigDecimal totalProgress = BigDecimal.ZERO;
+
+        int draftCount = 0;
+        int onTrackCount = 0;
+        int atRiskCount = 0;
+        int offTrackCount = 0;
+        int doneCount = 0;
+        int cancelledCount = 0;
+
+        int bucket0_4 = 0;
+        int bucket4_6 = 0;
+        int bucket6_7 = 0;
+        int bucket7_10 = 0;
+
+        for (OkrObjectiveVO objective : objectiveList) {
+            if (objective.getScore() != null) {
+                scoredCount++;
+                totalScore = totalScore.add(objective.getScore());
+                if (objective.getScore().compareTo(new BigDecimal("0.4")) < 0) {
+                    bucket0_4++;
+                } else if (objective.getScore().compareTo(new BigDecimal("0.6")) < 0) {
+                    bucket4_6++;
+                } else if (objective.getScore().compareTo(new BigDecimal("0.7")) < 0) {
+                    bucket6_7++;
+                } else {
+                    bucket7_10++;
+                }
+            }
+            if (objective.getProgress() != null) {
+                totalProgress = totalProgress.add(objective.getProgress());
+            }
+            Integer status = objective.getStatus();
+            if (status == null) {
+                continue;
+            }
+            switch (status) {
+                case 0:
+                    draftCount++;
+                    break;
+                case 1:
+                    onTrackCount++;
+                    break;
+                case 2:
+                    atRiskCount++;
+                    break;
+                case 3:
+                    offTrackCount++;
+                    break;
+                case 4:
+                    doneCount++;
+                    break;
+                case 5:
+                    cancelledCount++;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        OkrReviewSummaryVO summaryVO = new OkrReviewSummaryVO();
+        summaryVO.setPeriodId(period.getPeriodId());
+        summaryVO.setPeriodName(period.getPeriodName());
+        summaryVO.setStartDate(period.getStartDate());
+        summaryVO.setEndDate(period.getEndDate());
+        summaryVO.setObjectiveCount(total);
+        summaryVO.setScoredCount(scoredCount);
+        summaryVO.setAvgScore(scoredCount == 0 ? null : totalScore.divide(BigDecimal.valueOf(scoredCount), 2, RoundingMode.HALF_UP));
+        summaryVO.setAvgProgress(total == 0 ? BigDecimal.ZERO : totalProgress.divide(BigDecimal.valueOf(total), 2, RoundingMode.HALF_UP));
+        summaryVO.setStatusDraftCount(draftCount);
+        summaryVO.setStatusOnTrackCount(onTrackCount);
+        summaryVO.setStatusAtRiskCount(atRiskCount);
+        summaryVO.setStatusOffTrackCount(offTrackCount);
+        summaryVO.setStatusDoneCount(doneCount);
+        summaryVO.setStatusCancelledCount(cancelledCount);
+        List<OkrReviewScoreBucketVO> bucketList = new ArrayList<>();
+        bucketList.add(new OkrReviewScoreBucketVO("0-0.4", bucket0_4));
+        bucketList.add(new OkrReviewScoreBucketVO("0.4-0.6", bucket4_6));
+        bucketList.add(new OkrReviewScoreBucketVO("0.6-0.7", bucket6_7));
+        bucketList.add(new OkrReviewScoreBucketVO("0.7-1.0", bucket7_10));
+        summaryVO.setScoreBucketList(bucketList);
+        summaryVO.setObjectiveList(objectiveList);
+        return ResponseDTO.ok(summaryVO);
+    }
+
+    /**
      * 新建目标
      */
     @Transactional(rollbackFor = Exception.class)
@@ -115,6 +226,18 @@ public class OkrObjectiveService {
         if (entity.getDeletedFlag() == null) {
             entity.setDeletedFlag(db.getDeletedFlag());
         }
+        if (entity.getScore() == null) {
+            entity.setScore(db.getScore());
+        }
+        if (entity.getReviewNote() == null) {
+            entity.setReviewNote(db.getReviewNote());
+        }
+        if (entity.getReviewUserId() == null) {
+            entity.setReviewUserId(db.getReviewUserId());
+        }
+        if (entity.getReviewTime() == null) {
+            entity.setReviewTime(db.getReviewTime());
+        }
         okrObjectiveDao.updateById(entity);
         return ResponseDTO.ok();
     }
@@ -133,6 +256,30 @@ public class OkrObjectiveService {
         update.setDeletedFlag(Boolean.TRUE);
         okrObjectiveDao.updateById(update);
         okrKeyResultDao.updateDeletedByObjectiveId(objectiveId, Boolean.TRUE);
+        return ResponseDTO.ok();
+    }
+
+    /**
+     * 目标评分/复盘
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public ResponseDTO<String> review(OkrObjectiveReviewForm reviewForm) {
+        OkrObjectiveEntity db = okrObjectiveDao.selectById(reviewForm.getObjectiveId());
+        if (db == null || Boolean.TRUE.equals(db.getDeletedFlag())) {
+            return ResponseDTO.userErrorParam("目标不存在");
+        }
+        if (reviewForm.getScore() == null
+                || reviewForm.getScore().compareTo(BigDecimal.ZERO) < 0
+                || reviewForm.getScore().compareTo(BigDecimal.ONE) > 0) {
+            return ResponseDTO.userErrorParam("评分范围为0-1");
+        }
+        OkrObjectiveEntity update = new OkrObjectiveEntity();
+        update.setObjectiveId(reviewForm.getObjectiveId());
+        update.setScore(reviewForm.getScore());
+        update.setReviewNote(reviewForm.getReviewNote());
+        update.setReviewUserId(reviewForm.getReviewUserId());
+        update.setReviewTime(java.time.LocalDateTime.now());
+        okrObjectiveDao.updateById(update);
         return ResponseDTO.ok();
     }
 
