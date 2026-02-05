@@ -5,6 +5,9 @@
   <div class="okr-feishu">
     <aside class="okr-feishu-side">
       <a-card size="small" :bordered="false" class="okr-side-card">
+        <div class="okr-side-search">
+          <a-input v-model:value="sideOwnerSearch" allowClear size="small" placeholder="搜索员工" />
+        </div>
         <div class="okr-side-section">
           <div class="okr-side-title">我的 OKR</div>
           <div
@@ -21,26 +24,34 @@
         </div>
 
         <div class="okr-side-section">
-          <div class="okr-side-title">直属下级</div>
-          <div v-if="directReportList.length === 0" class="okr-side-empty">暂无直属下级</div>
-          <div
-            v-for="owner in directReportList"
-            :key="owner.employeeId"
-            class="okr-owner"
-            :class="{ 'is-active': activeOwnerId === owner.employeeId }"
-            @click="selectOwner(owner.employeeId)"
-          >
-            <a-avatar size="small">{{ owner.shortName }}</a-avatar>
-            <div class="okr-owner-info">
-              <div class="okr-owner-name">{{ owner.ownerName }}</div>
-              <div class="okr-owner-meta">{{ owner.objectiveCount }} 个目标</div>
+          <div class="okr-side-title okr-side-toggle" @click="toggleDirectReports">
+            <span>直属下级</span>
+            <DownOutlined :class="{ 'is-collapsed': !directReportOpen }" />
+          </div>
+          <div v-if="directReportOpen">
+            <div v-if="filteredSideDirectReports.length === 0" class="okr-side-empty">暂无直属下级</div>
+            <div
+              v-for="owner in filteredSideDirectReports"
+              :key="owner.employeeId"
+              class="okr-owner"
+              :class="{ 'is-active': activeOwnerId === owner.employeeId }"
+              @click="selectOwner(owner.employeeId)"
+            >
+              <a-avatar size="small">{{ owner.shortName }}</a-avatar>
+              <div class="okr-owner-info">
+                <div class="okr-owner-name">{{ owner.ownerName }}</div>
+                <div class="okr-owner-meta">{{ owner.objectiveCount }} 个目标</div>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="okr-side-section">
-          <div class="okr-side-title">我的关注</div>
-          <div class="okr-side-empty">暂无关注</div>
+          <div class="okr-side-title okr-side-toggle" @click="toggleFocus">
+            <span>我的关注</span>
+            <DownOutlined :class="{ 'is-collapsed': !focusOpen }" />
+          </div>
+          <div v-if="focusOpen" class="okr-side-empty">暂无关注</div>
         </div>
       </a-card>
     </aside>
@@ -59,178 +70,155 @@
           </a-radio-group>
         </div>
 
-        <div class="okr-main-header">
-          <div class="okr-header-left">
-            <a-input
-              v-model:value="queryForm.keywords"
-              allowClear
-              placeholder="搜索目标 / 关键结果"
-              style="width: 220px"
-              @pressEnter="queryList"
-            />
-            <a-button @click="queryList" type="primary" ghost>刷新</a-button>
+        <div class="okr-main-toolbar">
+          <div class="okr-owner-summary">
+            <a-avatar>{{ activeOwnerProfile.shortName }}</a-avatar>
+            <div>
+              <div class="okr-owner-name">{{ activeOwnerProfile.ownerName }}</div>
+              <div class="okr-owner-sub">{{ activeOwnerProfile.meta }}</div>
+            </div>
           </div>
-          <div class="okr-header-right">
-            <EmployeeSelect width="200px" v-model:value="queryForm.ownerEmployeeId" placeholder="搜索员工" />
-            <a-select v-model:value="queryForm.periodId" style="width: 200px" allowClear placeholder="选择周期" @change="queryList">
+          <div class="okr-period-toolbar">
+            <a-button type="text" class="okr-icon-btn" @click="shiftPeriod(-1)">
+              <LeftOutlined />
+            </a-button>
+            <a-select v-model:value="queryForm.periodId" class="okr-period-select" allowClear placeholder="选择周期" @change="queryList">
               <a-select-option v-for="item in periodList" :key="item.periodId" :value="item.periodId">
                 {{ item.periodName }}
               </a-select-option>
             </a-select>
-            <a-button @click="openOwnerPicker">员工列表</a-button>
+            <a-select v-model:value="okrCycle" class="okr-cycle-select">
+              <a-select-option value="year">年度 OKR</a-select-option>
+              <a-select-option value="quarter">季度 OKR</a-select-option>
+            </a-select>
+            <a-button type="text" class="okr-icon-btn" @click="shiftPeriod(1)">
+              <RightOutlined />
+            </a-button>
+          </div>
+          <div class="okr-toolbar-actions">
+            <a-button type="text" class="okr-icon-btn" @click="openOwnerPicker">员工列表</a-button>
+            <a-button type="text" class="okr-icon-btn"><CommentOutlined /></a-button>
+            <a-button type="text" class="okr-icon-btn"><StarOutlined /></a-button>
             <a-button type="primary" @click="addObjective">新建目标</a-button>
           </div>
+        </div>
+
+        <div class="okr-filter-bar">
+          <a-input
+            v-model:value="queryForm.keywords"
+            allowClear
+            placeholder="搜索目标 / 关键结果"
+            class="okr-filter-input"
+            @pressEnter="queryList"
+          />
+          <EmployeeSelect width="180px" v-model:value="queryForm.ownerEmployeeId" placeholder="搜索员工" />
+          <a-select v-model:value="queryForm.periodId" class="okr-filter-select" allowClear placeholder="选择周期" @change="queryList">
+            <a-select-option v-for="item in periodList" :key="item.periodId" :value="item.periodId">
+              {{ item.periodName }}
+            </a-select-option>
+          </a-select>
+          <a-button @click="queryList" type="primary" ghost>刷新</a-button>
         </div>
 
         <a-spin :spinning="tableLoading">
           <div v-if="activeScope === 'focus'" class="okr-empty">
             <a-empty description="暂无关注" />
           </div>
-          <div v-else-if="groupedObjectiveList.length === 0" class="okr-empty">
+          <div v-else-if="objectiveList.length === 0" class="okr-empty">
             <a-empty description="暂无目标" />
           </div>
-          <div v-else class="okr-group-list">
-            <div v-for="group in groupedObjectiveList" :key="group.ownerId" class="okr-owner-group">
-              <div class="okr-owner-header">
-                <a-avatar>{{ group.ownerShortName }}</a-avatar>
-                <div>
-                  <div class="okr-owner-title">{{ group.ownerName }}</div>
-                  <div class="okr-owner-sub">{{ group.objectives.length }} 个目标</div>
+          <div v-else class="okr-objective-list">
+            <div v-for="(item, index) in objectiveList" :key="item.objectiveId" class="okr-feishu-objective">
+              <div class="okr-feishu-objective-top">
+                <div class="okr-feishu-objective-info">
+                  <div class="okr-feishu-align">
+                    <a-button type="text" class="okr-align-btn" @click="toDetail(item.objectiveId)">
+                      <FlagOutlined />
+                      <span>添加对齐</span>
+                    </a-button>
+                    <a-button type="link" size="small" @click="toDetail(item.objectiveId)">详情</a-button>
+                  </div>
+                  <div class="okr-feishu-title">目标 {{ index + 1 }}：{{ item.title }}</div>
+                  <div class="okr-feishu-owner-line">
+                    <span>{{ item.ownerName || '未指定' }}</span>
+                    <span class="okr-sub-divider">·</span>
+                    <span>{{ item.periodName || '—' }}</span>
+                  </div>
+                  <div class="okr-feishu-align-names">
+                    <template v-if="detailState(item.objectiveId).alignedList.length">
+                      <span
+                        v-for="(aligned, alignedIndex) in detailState(item.objectiveId).alignedList"
+                        :key="aligned.objectiveId"
+                      >
+                        {{ aligned.ownerName || aligned.title }}
+                        <span v-if="alignedIndex < detailState(item.objectiveId).alignedList.length - 1">，</span>
+                      </span>
+                    </template>
+                    <span v-else class="okr-muted">暂无对齐</span>
+                  </div>
+                </div>
+                <div class="okr-feishu-objective-metrics">
+                  <div class="okr-metric-block">
+                    <div class="okr-metric-label">进度</div>
+                    <a-progress type="circle" :percent="Number(item.progress || 0)" :width="46" :strokeWidth="8" />
+                  </div>
+                  <div class="okr-metric-block">
+                    <div class="okr-metric-label">权重</div>
+                    <div class="okr-metric-value">100%</div>
+                  </div>
+                  <div class="okr-metric-block">
+                    <div class="okr-metric-label">总分</div>
+                    <div class="okr-metric-value">{{ formatScore(item.score) }}</div>
+                  </div>
                 </div>
               </div>
 
-              <div class="okr-objective-list">
-                <a-card v-for="item in group.objectives" :key="item.objectiveId" size="small" class="okr-objective-card">
-                  <div class="okr-objective-header">
-                    <div class="okr-objective-title" @click="toDetail(item.objectiveId)">{{ item.title }}</div>
-                    <a-tag :color="statusColor(item.status)">
-                      {{ $smartEnumPlugin.getDescByValue('OKR_STATUS_ENUM', item.status) }}
-                    </a-tag>
-                  </div>
-
-                  <div class="okr-objective-sub">
-                    <span>周期：{{ item.periodName || '—' }}</span>
-                    <span class="okr-sub-divider">·</span>
-                    <span>对齐：{{ item.parentObjectiveTitle || '未对齐' }}</span>
-                  </div>
-
-                  <div class="okr-owner-row">
-                    <a-avatar size="small">{{ (item.ownerName || '未').slice(0, 1) }}</a-avatar>
-                    <span class="okr-owner-name">{{ item.ownerName || '未指定' }}</span>
-                    <span class="okr-owner-tag">负责人</span>
-                  </div>
-
-                  <div class="okr-objective-metrics">
-                    <div class="okr-metric-card">
-                      <div class="okr-metric-value">{{ Math.round(Number(item.progress || 0)) }}%</div>
-                      <div class="okr-metric-label">进度</div>
+              <div class="okr-feishu-kr-list">
+                <div v-if="detailState(item.objectiveId).keyResultList.length">
+                  <div
+                    v-for="(kr, krIndex) in detailState(item.objectiveId).keyResultList"
+                    :key="kr.keyResultId || krIndex"
+                    class="okr-feishu-kr-row"
+                  >
+                    <div class="okr-feishu-kr-left">
+                      <span class="okr-kr-dot"></span>
+                      <div class="okr-feishu-kr-title">关键结果 {{ krIndex + 1 }}：{{ kr.title }}</div>
                     </div>
-                    <div class="okr-metric-card">
-                      <div class="okr-metric-value">100%</div>
-                      <div class="okr-metric-label">权重</div>
-                    </div>
-                    <div class="okr-metric-card">
-                      <div class="okr-metric-value">{{ formatScore(item.score) }}</div>
-                      <div class="okr-metric-label">总分</div>
-                    </div>
-                  </div>
-
-                  <div class="okr-objective-progress">
-                    <a-progress :percent="Number(item.progress || 0)" size="small" />
-                  </div>
-
-                  <div class="okr-objective-stats">
-                    <div class="okr-stat-item">
-                      <div class="okr-stat-label">KR 数</div>
-                      <div class="okr-stat-value">{{ item.keyResultCount || 0 }}</div>
-                    </div>
-                    <div class="okr-stat-item">
-                      <div class="okr-stat-label">置信度</div>
-                      <div class="okr-stat-value">{{ $smartEnumPlugin.getDescByValue('OKR_CONFIDENCE_ENUM', item.confidence) || '—' }}</div>
-                    </div>
-                    <div class="okr-stat-item">
-                      <div class="okr-stat-label">更新时间</div>
-                      <div class="okr-stat-value">{{ item.updateTime || '—' }}</div>
-                    </div>
-                  </div>
-
-                  <div class="okr-objective-actions">
-                    <a-button type="link" size="small" @click="toggleExpand(item.objectiveId)">
-                      {{ expandedObjectiveIds.has(item.objectiveId) ? '收起' : '展开' }}
-                    </a-button>
-                    <a-tooltip title="请在详情里设置对齐关系">
-                      <a-button type="link" size="small" @click="toDetail(item.objectiveId)">添加对齐</a-button>
-                    </a-tooltip>
-                    <a-button type="link" size="small" @click="openKeyResult(item.objectiveId)">新增 KR</a-button>
-                    <a-button type="link" size="small" @click="openCheckin(item.objectiveId, item.title)">更新进展</a-button>
-                    <a-button type="link" size="small" @click="toDetail(item.objectiveId)">详情</a-button>
-                  </div>
-
-                  <div v-if="expandedObjectiveIds.has(item.objectiveId)" class="okr-objective-detail">
-                    <a-divider />
-                    <div class="okr-detail-title">对齐关系</div>
-                    <div class="okr-align-block">
-                      <div class="okr-align-item">
-                        <span class="okr-align-label">上级目标</span>
-                        <span>{{ item.parentObjectiveTitle || '未对齐' }}</span>
+                    <div class="okr-feishu-kr-metrics">
+                      <a-progress type="circle" :percent="Number(kr.progress || 0)" :width="34" :strokeWidth="8" />
+                      <div class="okr-kr-metric">
+                        <div class="okr-kr-label">权重</div>
+                        <div class="okr-kr-value">{{ formatWeightPercent(kr, detailState(item.objectiveId).keyResultList) }}%</div>
                       </div>
-                      <div class="okr-align-item">
-                        <span class="okr-align-label">对齐到我的目标</span>
-                        <div class="okr-align-tags">
-                          <a-tag v-for="aligned in detailState(item.objectiveId).alignedList" :key="aligned.objectiveId">
-                            {{ aligned.title }}（{{ aligned.ownerName }}）
-                          </a-tag>
-                          <span v-if="detailState(item.objectiveId).alignedList.length === 0">暂无</span>
-                        </div>
+                      <div class="okr-kr-metric">
+                        <div class="okr-kr-label">评分</div>
+                        <div class="okr-kr-value">{{ formatScore(kr.score) }}</div>
                       </div>
                     </div>
-                    <div class="okr-detail-title">关键结果</div>
-                    <a-spin :spinning="detailState(item.objectiveId).loading">
-                      <a-list
-                        v-if="detailState(item.objectiveId).keyResultList.length"
-                        :dataSource="detailState(item.objectiveId).keyResultList"
-                      >
-                        <template #renderItem="{ item: kr }">
-                          <a-list-item class="okr-kr-item">
-                            <div class="okr-kr-row">
-                              <div class="okr-kr-left">
-                                <div class="okr-kr-title">KR · {{ kr.title }}</div>
-                                <div class="okr-kr-meta">
-                                  <span>{{ kr.metricName || '指标' }}：</span>
-                                  <span>{{ kr.currentValue ?? '-' }}/{{ kr.targetValue ?? '-' }}{{ kr.unit || '' }}</span>
-                                  <span class="okr-sub-divider">·</span>
-                                  <span>权重 {{ formatWeightPercent(kr, detailState(item.objectiveId).keyResultList) }}%</span>
-                                  <span class="okr-sub-divider">·</span>
-                                  <span>评分 {{ formatScore(kr.score) }}</span>
-                                </div>
-                              </div>
-                              <div class="okr-kr-right">
-                                <div class="okr-kr-progress">
-                                  <a-progress :percent="Number(kr.progress || 0)" size="small" :showInfo="false" />
-                                  <span class="okr-kr-progress-value">{{ Math.round(Number(kr.progress || 0)) }}%</span>
-                                </div>
-                                <div class="okr-kr-badges">
-                                  <a-tag :color="statusColor(kr.status)">{{ $smartEnumPlugin.getDescByValue('OKR_STATUS_ENUM', kr.status) }}</a-tag>
-                                  <a-tag color="geekblue">{{ $smartEnumPlugin.getDescByValue('OKR_CONFIDENCE_ENUM', kr.confidence) || '—' }}</a-tag>
-                                </div>
-                              </div>
-                            </div>
-                          </a-list-item>
-                        </template>
-                      </a-list>
-                      <a-empty v-else description="暂无关键结果" />
-                    </a-spin>
-
-                    <div class="okr-detail-title">进展记录</div>
-                    <div v-if="detailState(item.objectiveId).checkinList.length" class="okr-checkin-wrapper">
-                      <OkrCheckinFeed :checkinList="detailState(item.objectiveId).checkinList.slice(0, 3)" />
-                    </div>
-                    <a-empty v-else description="暂无进展记录" />
-                    <div class="okr-checkin-more" v-if="detailState(item.objectiveId).checkinList.length > 3">
-                      <a @click="toDetail(item.objectiveId)">查看更多进展</a>
-                    </div>
                   </div>
-                </a-card>
+                </div>
+                <div v-else class="okr-kr-empty">暂无关键结果</div>
+                <div class="okr-kr-add">
+                  <a-button type="link" size="small" @click="openKeyResult(item.objectiveId)">添加 Key Result</a-button>
+                </div>
+              </div>
+
+              <div class="okr-feishu-checkin">
+                <div class="okr-feishu-checkin-title">
+                  <span class="okr-checkin-dot"></span>
+                  <span>进度记录</span>
+                </div>
+                <div v-if="detailState(item.objectiveId).checkinList.length" class="okr-feishu-checkin-item">
+                  <span class="okr-checkin-text">
+                    {{ formatCheckinSummary(detailState(item.objectiveId).checkinList[0]) }}
+                  </span>
+                  <span class="okr-checkin-time">{{ detailState(item.objectiveId).checkinList[0].createTime || '' }}</span>
+                </div>
+                <div v-else class="okr-feishu-checkin-empty">保持更新，让小伙伴们看到你的进度</div>
+                <div class="okr-feishu-checkin-actions">
+                  <a-button type="link" size="small" @click="openCheckin(item.objectiveId, item.title)">更新进展</a-button>
+                  <a-button type="link" size="small" @click="toDetail(item.objectiveId)">查看更多</a-button>
+                </div>
               </div>
             </div>
           </div>
@@ -278,6 +266,7 @@
 <script setup lang="ts">
   import { computed, onMounted, reactive, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
+  import { CommentOutlined, DownOutlined, FlagOutlined, LeftOutlined, RightOutlined, StarOutlined } from '@ant-design/icons-vue';
   import { okrApi } from '/@/api/business/oa/okr-api';
   import { PAGE_SIZE } from '/@/constants/common-const';
   import { smartSentry } from '/@/lib/smart-sentry';
@@ -286,7 +275,6 @@
   import OkrObjectiveFormDrawer from './components/okr-objective-form-drawer.vue';
   import OkrKeyResultFormModal from './components/okr-key-result-form-modal.vue';
   import OkrCheckinFormModal from './components/okr-checkin-form-modal.vue';
-  import OkrCheckinFeed from './components/okr-checkin-feed.vue';
 
   const router = useRouter();
   const route = useRoute();
@@ -296,7 +284,10 @@
   const tableLoading = ref(false);
   const objectiveList = ref([]);
   const allObjectiveList = ref([]);
-  const expandedObjectiveIds = ref(new Set());
+  const sideOwnerSearch = ref('');
+  const directReportOpen = ref(true);
+  const focusOpen = ref(true);
+  const okrCycle = ref('year');
 
   const detailMap = reactive({});
 
@@ -354,22 +345,37 @@
     return directReportList.value.filter((item) => item.ownerName?.includes(keyword));
   });
 
+  const filteredSideDirectReports = computed(() => {
+    const keyword = sideOwnerSearch.value.trim();
+    if (!keyword) {
+      return directReportList.value;
+    }
+    return directReportList.value.filter((item) => item.ownerName?.includes(keyword));
+  });
+
   const activeOwnerId = ref(undefined);
 
-  const groupedObjectiveList = computed(() => {
-    const map = new Map();
-    objectiveList.value.forEach((item) => {
-      if (!map.has(item.ownerEmployeeId)) {
-        map.set(item.ownerEmployeeId, {
-          ownerId: item.ownerEmployeeId,
-          ownerName: item.ownerName || '未指定',
-          ownerShortName: (item.ownerName || '未').slice(0, 1),
-          objectives: [],
-        });
-      }
-      map.get(item.ownerEmployeeId).objectives.push(item);
-    });
-    return Array.from(map.values());
+  const activeOwnerProfile = computed(() => {
+    if (activeOwnerId.value === myOwner.value.employeeId) {
+      return {
+        ownerName: myOwner.value.ownerName,
+        shortName: myOwner.value.shortName,
+        meta: `我的 OKR · ${myOwner.value.objectiveCount} 个目标`,
+      };
+    }
+    const owner = directReportList.value.find((item) => item.employeeId === activeOwnerId.value);
+    if (owner) {
+      return {
+        ownerName: owner.ownerName,
+        shortName: owner.shortName || owner.ownerName?.slice(0, 1) || '未',
+        meta: `直属下级 · ${owner.objectiveCount} 个目标`,
+      };
+    }
+    return {
+      ownerName: myOwner.value.ownerName,
+      shortName: myOwner.value.shortName,
+      meta: '我的 OKR',
+    };
   });
 
   async function queryPeriodList() {
@@ -390,6 +396,7 @@
       await queryOwnerOverview();
       const result = await okrApi.queryObjective(queryForm);
       objectiveList.value = result.data.list || [];
+      objectiveList.value.forEach((item) => loadDetail(item.objectiveId));
     } catch (e) {
       smartSentry.captureError(e);
     } finally {
@@ -459,15 +466,6 @@
     }
   }
 
-  function toggleExpand(objectiveId) {
-    if (expandedObjectiveIds.value.has(objectiveId)) {
-      expandedObjectiveIds.value.delete(objectiveId);
-    } else {
-      expandedObjectiveIds.value.add(objectiveId);
-      loadDetail(objectiveId);
-    }
-  }
-
   function formatWeightPercent(item, list) {
     if (!list || list.length === 0) {
       return 0;
@@ -482,6 +480,45 @@
 
   function openOwnerPicker() {
     ownerDrawerOpen.value = true;
+  }
+
+  function toggleDirectReports() {
+    directReportOpen.value = !directReportOpen.value;
+  }
+
+  function toggleFocus() {
+    focusOpen.value = !focusOpen.value;
+  }
+
+  function shiftPeriod(step) {
+    if (!periodList.value.length) {
+      return;
+    }
+    const currentIndex = periodList.value.findIndex((item) => item.periodId === queryForm.periodId);
+    if (currentIndex === -1) {
+      queryForm.periodId = periodList.value[0].periodId;
+      queryList();
+      return;
+    }
+    const nextIndex = currentIndex + step;
+    if (nextIndex < 0 || nextIndex >= periodList.value.length) {
+      return;
+    }
+    queryForm.periodId = periodList.value[nextIndex].periodId;
+    queryList();
+  }
+
+  function formatCheckinSummary(checkin) {
+    if (!checkin) {
+      return '';
+    }
+    if (checkin.note) {
+      return checkin.note;
+    }
+    if (checkin.keyResultTitle) {
+      return `${checkin.keyResultTitle} · 进度 ${Math.round(Number(checkin.progress || 0))}%`;
+    }
+    return `进度 ${Math.round(Number(checkin.progress || 0))}%`;
   }
 
   function addObjective() {
@@ -501,23 +538,6 @@
       path: '/oa/okr/okr-detail',
       query: { objectiveId },
     });
-  }
-
-  function statusColor(value) {
-    switch (value) {
-      case 1:
-        return 'blue';
-      case 2:
-        return 'orange';
-      case 3:
-        return 'red';
-      case 4:
-        return 'green';
-      case 5:
-        return 'default';
-      default:
-        return 'default';
-    }
   }
 
   function formatScore(value) {
@@ -573,6 +593,9 @@
     grid-template-columns: 260px 1fr;
     gap: 16px;
     min-height: 100%;
+    background: #f5f6f8;
+    padding: 12px;
+    border-radius: 14px;
   }
 
   .okr-feishu-side {
@@ -584,6 +607,11 @@
   .okr-side-card {
     border-radius: 12px;
     background: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .okr-side-search {
+    margin-bottom: 12px;
   }
 
   .okr-side-section {
@@ -591,9 +619,26 @@
   }
 
   .okr-side-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     font-weight: 600;
     color: #262626;
     margin-bottom: 8px;
+  }
+
+  .okr-side-toggle {
+    cursor: pointer;
+  }
+
+  .okr-side-toggle :deep(.anticon) {
+    font-size: 12px;
+    color: #8c8c8c;
+    transition: transform 0.2s;
+  }
+
+  .okr-side-toggle :deep(.anticon.is-collapsed) {
+    transform: rotate(-90deg);
   }
 
   .okr-owner {
@@ -670,7 +715,7 @@
 
   .okr-main-card {
     border-radius: 12px;
-    background: #ffffff;
+    background: transparent;
   }
 
   .okr-nav-bar {
@@ -690,20 +735,72 @@
     gap: 6px;
   }
 
-  .okr-main-header {
+  .okr-main-toolbar {
     display: flex;
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
     margin-bottom: 16px;
+    align-items: center;
   }
 
-  .okr-header-left,
-  .okr-header-right {
+  .okr-owner-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: #262626;
+  }
+
+  .okr-owner-sub {
+    font-size: 12px;
+    color: #8c8c8c;
+  }
+
+  .okr-period-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 4px 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .okr-period-select,
+  .okr-cycle-select {
+    min-width: 150px;
+  }
+
+  .okr-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .okr-icon-btn {
+    color: #595959;
+  }
+
+  .okr-filter-bar {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+    margin-bottom: 16px;
+    background: #ffffff;
+    padding: 8px 10px;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .okr-filter-input {
+    width: 220px;
+  }
+
+  .okr-filter-select {
+    width: 180px;
   }
 
   .okr-group-list {
@@ -736,71 +833,76 @@
   }
 
   .okr-objective-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 12px;
   }
 
-  .okr-objective-card {
-    border-radius: 10px;
+  .okr-feishu-objective {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    border: 1px solid #f0f0f0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
-  .okr-objective-header {
+  .okr-feishu-objective-top {
     display: flex;
-    align-items: flex-start;
     justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 8px;
+    gap: 16px;
+    flex-wrap: wrap;
   }
 
-  .okr-objective-title {
+  .okr-feishu-objective-info {
+    flex: 1;
+    min-width: 220px;
+  }
+
+  .okr-feishu-align {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .okr-align-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #1677ff;
+  }
+
+  .okr-feishu-title {
     font-weight: 600;
     color: #262626;
-    cursor: pointer;
+    margin-bottom: 6px;
   }
 
-  .okr-objective-sub {
+  .okr-feishu-owner-line {
     display: flex;
     align-items: center;
     gap: 6px;
     font-size: 12px;
     color: #8c8c8c;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+
+  .okr-feishu-align-names {
+    font-size: 12px;
+    color: #595959;
   }
 
   .okr-sub-divider {
     color: #bfbfbf;
   }
 
-  .okr-owner-row {
+  .okr-feishu-objective-metrics {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-    font-size: 12px;
-    color: #595959;
+    gap: 16px;
   }
 
-  .okr-owner-tag {
-    background: #f5f5f5;
-    border-radius: 10px;
-    padding: 2px 6px;
-    font-size: 11px;
-    color: #8c8c8c;
-  }
-
-  .okr-objective-metrics {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  .okr-metric-card {
-    background: #f5f7fb;
-    border-radius: 8px;
-    padding: 8px;
+  .okr-metric-block {
     text-align: center;
   }
 
@@ -808,162 +910,134 @@
     font-weight: 600;
     color: #262626;
     font-size: 14px;
+    margin-top: 4px;
   }
 
   .okr-metric-label {
-    font-size: 11px;
-    color: #8c8c8c;
-    margin-top: 2px;
-  }
-
-  .okr-objective-progress {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  .okr-objective-stats {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-    margin-bottom: 6px;
     font-size: 12px;
     color: #8c8c8c;
   }
 
-  .okr-stat-item {
-    background: #f8f9fb;
-    border-radius: 6px;
-    padding: 6px 8px;
-  }
-
-  .okr-stat-label {
-    font-size: 11px;
-    color: #8c8c8c;
-  }
-
-  .okr-stat-value {
-    font-size: 12px;
-    color: #262626;
-    margin-top: 2px;
-  }
-
-  .okr-objective-actions {
-    display: flex;
-    gap: 6px;
-    justify-content: flex-end;
-  }
-
-  .okr-objective-detail {
-    margin-top: 10px;
-  }
-
-  .okr-detail-title {
-    font-weight: 600;
-    font-size: 13px;
-    color: #262626;
-    margin-bottom: 6px;
-  }
-
-  .okr-align-block {
-    background: #f8f9fb;
-    border-radius: 8px;
-    padding: 8px 10px;
-    margin-bottom: 10px;
-  }
-
-  .okr-align-item {
-    display: flex;
-    gap: 8px;
-    font-size: 12px;
-    color: #595959;
-    margin-bottom: 6px;
-  }
-
-  .okr-align-label {
-    color: #8c8c8c;
-    min-width: 70px;
-  }
-
-  .okr-align-tags {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
-
-  .okr-kr-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-
-  .okr-kr-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-  }
-
-  .okr-kr-left {
+  .okr-feishu-kr-list {
+    margin-top: 12px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 10px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    flex: 1 1 auto;
-  }
-
-  .okr-kr-title {
-    font-size: 13px;
-    color: #262626;
-  }
-
-  .okr-kr-meta {
-    display: flex;
     gap: 10px;
-    font-size: 12px;
-    color: #8c8c8c;
-    flex-wrap: wrap;
   }
 
-  .okr-kr-right {
+  .okr-feishu-kr-row {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: flex-end;
-    min-width: 150px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
 
-  .okr-kr-progress {
+  .okr-feishu-kr-left {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-width: 160px;
+    flex: 1;
   }
 
-  .okr-kr-progress-value {
+  .okr-kr-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #1677ff;
+  }
+
+  .okr-feishu-kr-title {
+    font-size: 13px;
+    color: #262626;
+  }
+
+  .okr-feishu-kr-metrics {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .okr-kr-metric {
+    text-align: center;
+  }
+
+  .okr-kr-label {
+    font-size: 11px;
+    color: #8c8c8c;
+  }
+
+  .okr-kr-value {
+    font-size: 12px;
+    color: #262626;
+    font-weight: 600;
+  }
+
+  .okr-kr-empty {
+    font-size: 12px;
+    color: #bfbfbf;
+  }
+
+  .okr-kr-add {
+    margin-top: 4px;
+  }
+
+  .okr-feishu-checkin {
+    margin-top: 12px;
+    background: #f8f9fb;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+
+  .okr-feishu-checkin-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-size: 12px;
     color: #595959;
-    width: 36px;
-    text-align: right;
+    margin-bottom: 6px;
   }
 
-  .okr-kr-badges {
+  .okr-checkin-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d9d9d9;
+  }
+
+  .okr-feishu-checkin-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    color: #262626;
+  }
+
+  .okr-checkin-text {
+    flex: 1;
+  }
+
+  .okr-checkin-time {
+    color: #8c8c8c;
+    font-size: 12px;
+  }
+
+  .okr-feishu-checkin-empty {
+    font-size: 12px;
+    color: #bfbfbf;
+  }
+
+  .okr-feishu-checkin-actions {
+    margin-top: 6px;
     display: flex;
     gap: 6px;
-    flex-wrap: wrap;
     justify-content: flex-end;
   }
 
-  .okr-checkin-wrapper {
-    margin-top: 8px;
-  }
-
-  .okr-checkin-more {
-    text-align: right;
-    margin-top: 6px;
-    font-size: 12px;
+  .okr-muted {
+    color: #bfbfbf;
   }
 
   .okr-empty {
