@@ -20,6 +20,13 @@
         <SmartEnumSelect width="140px" v-model:value="queryForm.status" enum-name="OKR_STATUS_ENUM" placeholder="请选择" />
       </a-form-item>
 
+      <a-form-item label="快速筛选" class="smart-query-form-item">
+        <a-radio-group v-model:value="quickOwner" button-style="solid">
+          <a-radio-button value="all">全部</a-radio-button>
+          <a-radio-button value="mine">我负责</a-radio-button>
+        </a-radio-group>
+      </a-form-item>
+
       <a-form-item label="关键字" class="smart-query-form-item">
         <a-input style="width: 180px" v-model:value="queryForm.keywords" placeholder="目标标题/描述" />
       </a-form-item>
@@ -66,6 +73,42 @@
         <TableOperator v-model="columns" :tableId="TABLE_ID_CONST.BUSINESS.OA.OKR_OBJECTIVE" :refresh="queryList" />
       </div>
     </a-row>
+
+    <div class="okr-summary-block" v-if="canViewSummary">
+      <a-alert v-if="!queryForm.periodId" type="info" show-icon message="选择周期后可查看当前周期的OKR概览统计" />
+      <template v-else>
+        <a-row :gutter="16" class="okr-summary-row">
+          <a-col :xs="24" :sm="12" :md="6">
+            <a-card size="small" class="okr-stat-card">
+              <a-statistic title="目标数量" :value="summary.objectiveCount || 0" />
+            </a-card>
+          </a-col>
+          <a-col :xs="24" :sm="12" :md="6">
+            <a-card size="small" class="okr-stat-card">
+              <a-statistic title="已评分" :value="summary.scoredCount || 0" />
+            </a-card>
+          </a-col>
+          <a-col :xs="24" :sm="12" :md="6">
+            <a-card size="small" class="okr-stat-card">
+              <a-statistic title="平均评分" :value="formatScore(summary.avgScore)" />
+            </a-card>
+          </a-col>
+          <a-col :xs="24" :sm="12" :md="6">
+            <a-card size="small" class="okr-stat-card">
+              <a-statistic title="平均进度" :value="formatPercent(summary.avgProgress)" suffix="%" />
+            </a-card>
+          </a-col>
+        </a-row>
+        <div class="okr-summary-tags">
+          <a-tag color="default">草稿 {{ summary.statusDraftCount || 0 }}</a-tag>
+          <a-tag color="blue">正常 {{ summary.statusOnTrackCount || 0 }}</a-tag>
+          <a-tag color="orange">有风险 {{ summary.statusAtRiskCount || 0 }}</a-tag>
+          <a-tag color="red">偏离 {{ summary.statusOffTrackCount || 0 }}</a-tag>
+          <a-tag color="green">已完成 {{ summary.statusDoneCount || 0 }}</a-tag>
+          <a-tag>已取消 {{ summary.statusCancelledCount || 0 }}</a-tag>
+        </div>
+      </template>
+    </div>
 
     <a-table
       size="small"
@@ -122,13 +165,14 @@
 </template>
 
 <script setup lang="ts">
-  import { onMounted, reactive, ref } from 'vue';
+  import { computed, onMounted, reactive, ref, watch } from 'vue';
   import { Modal, message } from 'ant-design-vue';
   import { useRouter } from 'vue-router';
   import { okrApi } from '/@/api/business/oa/okr-api';
   import { SmartLoading } from '/@/components/framework/smart-loading';
   import { PAGE_SIZE, PAGE_SIZE_OPTIONS } from '/@/constants/common-const';
   import { smartSentry } from '/@/lib/smart-sentry';
+  import { useUserStore } from '/@/store/modules/system/user';
   import TableOperator from '/@/components/support/table-operator/index.vue';
   import { TABLE_ID_CONST } from '/@/constants/support/table-id-const';
   import OkrObjectiveFormDrawer from './components/okr-objective-form-drawer.vue';
@@ -136,6 +180,7 @@
   import SmartEnumSelect from '/@/components/framework/smart-enum-select/index.vue';
 
   const router = useRouter();
+  const userStore = useUserStore();
 
   const columns = ref([
     {
@@ -206,12 +251,49 @@
   const total = ref(0);
 
   const periodList = ref([]);
+  const quickOwner = ref('all');
+  const summaryDefault = {
+    objectiveCount: 0,
+    scoredCount: 0,
+    avgScore: null,
+    avgProgress: 0,
+    statusDraftCount: 0,
+    statusOnTrackCount: 0,
+    statusAtRiskCount: 0,
+    statusOffTrackCount: 0,
+    statusDoneCount: 0,
+    statusCancelledCount: 0,
+  };
+  const summary = ref({ ...summaryDefault });
+  const canViewSummary = computed(() => {
+    if (userStore.administratorFlag) {
+      return true;
+    }
+    const points = userStore.getPointList || [];
+    return points.some((item) => item.webPerms === 'oa:okr:review:summary');
+  });
   const objectiveFormRef = ref();
 
   async function queryPeriodList() {
     try {
       const result = await okrApi.listAllPeriod();
       periodList.value = result.data || [];
+    } catch (e) {
+      smartSentry.captureError(e);
+    }
+  }
+
+  async function loadSummary() {
+    if (!canViewSummary.value) {
+      return;
+    }
+    if (!queryForm.periodId) {
+      summary.value = { ...summaryDefault };
+      return;
+    }
+    try {
+      const result = await okrApi.getReviewSummary(queryForm.periodId);
+      summary.value = result.data || { ...summaryDefault };
     } catch (e) {
       smartSentry.captureError(e);
     }
@@ -304,6 +386,51 @@
     return Number(value).toFixed(2);
   }
 
+  function formatPercent(value) {
+    if (value === null || value === undefined) {
+      return '0.00';
+    }
+    return Number(value).toFixed(2);
+  }
+
+  const currentEmployeeId = computed(() => {
+    if (!userStore.employeeId) {
+      return undefined;
+    }
+    const idNumber = Number(userStore.employeeId);
+    return Number.isNaN(idNumber) ? userStore.employeeId : idNumber;
+  });
+
+  watch(quickOwner, (value) => {
+    if (value === 'mine') {
+      queryForm.ownerEmployeeId = currentEmployeeId.value;
+    } else if (value === 'all') {
+      queryForm.ownerEmployeeId = undefined;
+    }
+  });
+
+  watch(
+    () => queryForm.ownerEmployeeId,
+    (value) => {
+      if (!value) {
+        quickOwner.value = 'all';
+        return;
+      }
+      if (String(value) === String(currentEmployeeId.value)) {
+        quickOwner.value = 'mine';
+        return;
+      }
+      quickOwner.value = undefined;
+    }
+  );
+
+  watch(
+    () => queryForm.periodId,
+    () => {
+      loadSummary();
+    }
+  );
+
   async function deleteObjective(objectiveId) {
     SmartLoading.show();
     try {
@@ -322,3 +449,24 @@
     queryList();
   });
 </script>
+
+<style scoped>
+  .okr-summary-block {
+    margin-bottom: 16px;
+  }
+
+  .okr-summary-row {
+    margin-bottom: 8px;
+  }
+
+  .okr-stat-card {
+    border-radius: 8px;
+  }
+
+  .okr-summary-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 4px 2px 0;
+  }
+</style>
