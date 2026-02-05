@@ -191,15 +191,28 @@
                       >
                         <template #renderItem="{ item: kr }">
                           <a-list-item class="okr-kr-item">
-                            <div class="okr-kr-main">
-                              <div class="okr-kr-title">{{ kr.title }}</div>
-                              <div class="okr-kr-meta">
-                                <span>权重 {{ formatWeightPercent(kr, detailState(item.objectiveId).keyResultList) }}%</span>
-                                <span>评分 {{ formatScore(kr.score) }}</span>
+                            <div class="okr-kr-row">
+                              <div class="okr-kr-left">
+                                <div class="okr-kr-title">KR · {{ kr.title }}</div>
+                                <div class="okr-kr-meta">
+                                  <span>{{ kr.metricName || '指标' }}：</span>
+                                  <span>{{ kr.currentValue ?? '-' }}/{{ kr.targetValue ?? '-' }}{{ kr.unit || '' }}</span>
+                                  <span class="okr-sub-divider">·</span>
+                                  <span>权重 {{ formatWeightPercent(kr, detailState(item.objectiveId).keyResultList) }}%</span>
+                                  <span class="okr-sub-divider">·</span>
+                                  <span>评分 {{ formatScore(kr.score) }}</span>
+                                </div>
                               </div>
-                            </div>
-                            <div class="okr-kr-progress">
-                              <a-progress :percent="Number(kr.progress || 0)" size="small" />
+                              <div class="okr-kr-right">
+                                <div class="okr-kr-progress">
+                                  <a-progress :percent="Number(kr.progress || 0)" size="small" :showInfo="false" />
+                                  <span class="okr-kr-progress-value">{{ Math.round(Number(kr.progress || 0)) }}%</span>
+                                </div>
+                                <div class="okr-kr-badges">
+                                  <a-tag :color="statusColor(kr.status)">{{ $smartEnumPlugin.getDescByValue('OKR_STATUS_ENUM', kr.status) }}</a-tag>
+                                  <a-tag color="geekblue">{{ $smartEnumPlugin.getDescByValue('OKR_CONFIDENCE_ENUM', kr.confidence) || '—' }}</a-tag>
+                                </div>
+                              </div>
                             </div>
                           </a-list-item>
                         </template>
@@ -804,10 +817,19 @@
     gap: 12px;
   }
 
-  .okr-kr-main {
+  .okr-kr-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .okr-kr-left {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    flex: 1 1 auto;
   }
 
   .okr-kr-title {
@@ -820,10 +842,36 @@
     gap: 10px;
     font-size: 12px;
     color: #8c8c8c;
+    flex-wrap: wrap;
+  }
+
+  .okr-kr-right {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+    min-width: 150px;
   }
 
   .okr-kr-progress {
-    min-width: 120px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 160px;
+  }
+
+  .okr-kr-progress-value {
+    font-size: 12px;
+    color: #595959;
+    width: 36px;
+    text-align: right;
+  }
+
+  .okr-kr-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .okr-checkin-wrapper {
