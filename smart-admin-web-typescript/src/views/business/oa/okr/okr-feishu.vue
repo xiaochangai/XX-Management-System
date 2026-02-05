@@ -222,9 +222,12 @@
 
                     <div class="okr-detail-title">进展记录</div>
                     <div v-if="detailState(item.objectiveId).checkinList.length" class="okr-checkin-wrapper">
-                      <OkrCheckinTimeline :checkinList="detailState(item.objectiveId).checkinList.slice(0, 3)" />
+                      <OkrCheckinFeed :checkinList="detailState(item.objectiveId).checkinList.slice(0, 3)" />
                     </div>
                     <a-empty v-else description="暂无进展记录" />
+                    <div class="okr-checkin-more" v-if="detailState(item.objectiveId).checkinList.length > 3">
+                      <a @click="toDetail(item.objectiveId)">查看更多进展</a>
+                    </div>
                   </div>
                 </a-card>
               </div>
@@ -251,7 +254,7 @@
   import OkrObjectiveFormDrawer from './components/okr-objective-form-drawer.vue';
   import OkrKeyResultFormModal from './components/okr-key-result-form-modal.vue';
   import OkrCheckinFormModal from './components/okr-checkin-form-modal.vue';
-  import OkrCheckinTimeline from './components/okr-checkin-timeline.vue';
+  import OkrCheckinFeed from './components/okr-checkin-feed.vue';
 
   const router = useRouter();
   const route = useRoute();
@@ -876,6 +879,12 @@
 
   .okr-checkin-wrapper {
     margin-top: 8px;
+  }
+
+  .okr-checkin-more {
+    text-align: right;
+    margin-top: 6px;
+    font-size: 12px;
   }
 
   .okr-empty {
