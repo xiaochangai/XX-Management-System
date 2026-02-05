@@ -47,6 +47,18 @@
 
     <section class="okr-feishu-main">
       <a-card size="small" :bordered="false" class="okr-main-card">
+        <div class="okr-nav-bar">
+          <a-radio-group v-model:value="activeNav" size="small" class="okr-nav-tabs" @change="onNavChange">
+            <a-radio-button value="okr">OKR</a-radio-button>
+            <a-radio-button value="map">对齐视图</a-radio-button>
+            <a-radio-button value="dashboard">数据看板</a-radio-button>
+          </a-radio-group>
+          <a-radio-group v-model:value="activeScope" size="small" class="okr-scope-tabs">
+            <a-radio-button value="mine">我的 OKR</a-radio-button>
+            <a-radio-button value="focus">我的关注</a-radio-button>
+          </a-radio-group>
+        </div>
+
         <div class="okr-main-header">
           <div class="okr-header-left">
             <a-input
@@ -70,7 +82,10 @@
         </div>
 
         <a-spin :spinning="tableLoading">
-          <div v-if="groupedObjectiveList.length === 0" class="okr-empty">
+          <div v-if="activeScope === 'focus'" class="okr-empty">
+            <a-empty description="暂无关注" />
+          </div>
+          <div v-else-if="groupedObjectiveList.length === 0" class="okr-empty">
             <a-empty description="暂无目标" />
           </div>
           <div v-else class="okr-group-list">
@@ -106,10 +121,28 @@
                     <a-progress :percent="Number(item.progress || 0)" size="small" />
                   </div>
 
+                  <div class="okr-objective-stats">
+                    <div class="okr-stat-item">
+                      <div class="okr-stat-label">KR</div>
+                      <div class="okr-stat-value">{{ item.keyResultCount || 0 }}</div>
+                    </div>
+                    <div class="okr-stat-item">
+                      <div class="okr-stat-label">评分</div>
+                      <div class="okr-stat-value">{{ formatScore(item.score) }}</div>
+                    </div>
+                    <div class="okr-stat-item">
+                      <div class="okr-stat-label">更新时间</div>
+                      <div class="okr-stat-value">{{ item.updateTime || '—' }}</div>
+                    </div>
+                  </div>
+
                   <div class="okr-objective-actions">
                     <a-button type="link" size="small" @click="toggleExpand(item.objectiveId)">
                       {{ expandedObjectiveIds.has(item.objectiveId) ? '收起' : '展开' }}
                     </a-button>
+                    <a-tooltip title="请在详情里设置对齐关系">
+                      <a-button type="link" size="small" @click="toDetail(item.objectiveId)">添加对齐</a-button>
+                    </a-tooltip>
                     <a-button type="link" size="small" @click="openKeyResult(item.objectiveId)">新增 KR</a-button>
                     <a-button type="link" size="small" @click="openCheckin(item.objectiveId, item.title)">更新进展</a-button>
                     <a-button type="link" size="small" @click="toDetail(item.objectiveId)">详情</a-button>
@@ -117,6 +150,22 @@
 
                   <div v-if="expandedObjectiveIds.has(item.objectiveId)" class="okr-objective-detail">
                     <a-divider />
+                    <div class="okr-detail-title">对齐关系</div>
+                    <div class="okr-align-block">
+                      <div class="okr-align-item">
+                        <span class="okr-align-label">上级目标</span>
+                        <span>{{ item.parentObjectiveTitle || '未对齐' }}</span>
+                      </div>
+                      <div class="okr-align-item">
+                        <span class="okr-align-label">对齐到我的目标</span>
+                        <div class="okr-align-tags">
+                          <a-tag v-for="aligned in detailState(item.objectiveId).alignedList" :key="aligned.objectiveId">
+                            {{ aligned.title }}（{{ aligned.ownerName }}）
+                          </a-tag>
+                          <span v-if="detailState(item.objectiveId).alignedList.length === 0">暂无</span>
+                        </div>
+                      </div>
+                    </div>
                     <div class="okr-detail-title">关键结果</div>
                     <a-spin :spinning="detailState(item.objectiveId).loading">
                       <a-list
@@ -163,7 +212,7 @@
 
 <script setup lang="ts">
   import { computed, onMounted, reactive, ref, watch } from 'vue';
-  import { useRouter } from 'vue-router';
+  import { useRoute, useRouter } from 'vue-router';
   import { okrApi } from '/@/api/business/oa/okr-api';
   import { PAGE_SIZE } from '/@/constants/common-const';
   import { smartSentry } from '/@/lib/smart-sentry';
@@ -175,6 +224,7 @@
   import OkrCheckinTimeline from './components/okr-checkin-timeline.vue';
 
   const router = useRouter();
+  const route = useRoute();
   const userStore = useUserStore();
 
   const periodList = ref([]);
@@ -197,6 +247,9 @@
   const objectiveFormRef = ref();
   const keyResultFormRef = ref();
   const checkinFormRef = ref();
+
+  const activeNav = ref('okr');
+  const activeScope = ref('mine');
 
   const myOwner = computed(() => {
     return {
@@ -304,6 +357,7 @@
         loaded: false,
         keyResultList: [],
         checkinList: [],
+        alignedList: [],
       };
     }
     return detailMap[objectiveId];
@@ -320,6 +374,8 @@
       state.keyResultList = detailRes.data?.keyResultList || [];
       const checkinRes = await okrApi.queryCheckin(objectiveId);
       state.checkinList = checkinRes.data || [];
+      const alignedRes = await okrApi.getObjectiveAlignedList(objectiveId);
+      state.alignedList = alignedRes.data || [];
       state.loaded = true;
     } catch (e) {
       smartSentry.captureError(e);
@@ -392,14 +448,44 @@
     return Number(value).toFixed(2);
   }
 
+  function onNavChange() {
+    switch (activeNav.value) {
+      case 'map':
+        router.push({ path: '/oa/okr/okr-map' });
+        break;
+      case 'dashboard':
+        router.push({ path: '/oa/okr/okr-review-summary' });
+        break;
+      default:
+        router.push({ path: '/oa/okr/okr-feishu' });
+        break;
+    }
+  }
+
+  function syncActiveNav() {
+    if (route.path.includes('okr-map')) {
+      activeNav.value = 'map';
+    } else if (route.path.includes('okr-review-summary')) {
+      activeNav.value = 'dashboard';
+    } else {
+      activeNav.value = 'okr';
+    }
+  }
+
   onMounted(async () => {
     await queryPeriodList();
+    syncActiveNav();
     if (userStore.employeeId) {
       queryForm.ownerEmployeeId = Number(userStore.employeeId);
     } else {
       await queryList();
     }
   });
+
+  watch(
+    () => route.path,
+    () => syncActiveNav()
+  );
 </script>
 
 <style scoped>
@@ -473,6 +559,23 @@
   .okr-main-card {
     border-radius: 12px;
     background: #ffffff;
+  }
+
+  .okr-nav-bar {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 4px 0 12px;
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 12px;
+  }
+
+  .okr-nav-tabs,
+  .okr-scope-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
   .okr-main-header {
@@ -560,6 +663,32 @@
     margin-bottom: 6px;
   }
 
+  .okr-objective-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #8c8c8c;
+  }
+
+  .okr-stat-item {
+    background: #f5f7fb;
+    border-radius: 6px;
+    padding: 6px 8px;
+  }
+
+  .okr-stat-label {
+    font-size: 11px;
+    color: #8c8c8c;
+  }
+
+  .okr-stat-value {
+    font-size: 12px;
+    color: #262626;
+    margin-top: 2px;
+  }
+
   .okr-progress-label {
     font-size: 12px;
     color: #8c8c8c;
@@ -581,6 +710,32 @@
     font-size: 13px;
     color: #262626;
     margin-bottom: 6px;
+  }
+
+  .okr-align-block {
+    background: #f8f9fb;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+  }
+
+  .okr-align-item {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    color: #595959;
+    margin-bottom: 6px;
+  }
+
+  .okr-align-label {
+    color: #8c8c8c;
+    min-width: 70px;
+  }
+
+  .okr-align-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
   }
 
   .okr-kr-item {
