@@ -23,3 +23,6 @@ target/
 **/node_modules
 **/.vscode
 
+
+# local maven cache
+.m2/
