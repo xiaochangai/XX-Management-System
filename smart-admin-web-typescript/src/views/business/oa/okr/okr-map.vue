@@ -30,12 +30,12 @@
       :field-names="{ title: 'title', key: 'key', children: 'children' }"
     >
       <template #title="node">
-        <div class="okr-tree-node" @click="toDetail(node.data.objectiveId)">
-          <div class="okr-tree-title">{{ node.data.title }}</div>
+        <div class="okr-tree-node" @click="toDetail(node)">
+          <div class="okr-tree-title">{{ resolveNodeField(node, 'title') }}</div>
           <div class="okr-tree-meta">
-            <span class="okr-tree-owner">{{ node.data.ownerName }}</span>
-            <span class="okr-tree-status">{{ $smartEnumPlugin.getDescByValue('OKR_STATUS_ENUM', node.data.status) }}</span>
-            <span class="okr-tree-progress">{{ Number(node.data.progress || 0) }}%</span>
+            <span class="okr-tree-owner">{{ resolveNodeField(node, 'ownerName') }}</span>
+            <span class="okr-tree-status">{{ $smartEnumPlugin.getDescByValue('OKR_STATUS_ENUM', resolveNodeField(node, 'status')) }}</span>
+            <span class="okr-tree-progress">{{ Number(resolveNodeField(node, 'progress') || 0) }}%</span>
           </div>
         </div>
       </template>
@@ -104,7 +104,23 @@
     }
   }
 
-  function toDetail(objectiveId) {
+  function resolveNodeData(node) {
+    if (!node) {
+      return {};
+    }
+    return node.data || node.dataRef || node;
+  }
+
+  function resolveNodeField(node, field) {
+    const data = resolveNodeData(node);
+    return data ? data[field] : undefined;
+  }
+
+  function toDetail(node) {
+    const objectiveId = resolveNodeField(node, 'objectiveId');
+    if (!objectiveId) {
+      return;
+    }
     router.push({
       path: '/oa/okr/okr-detail',
       query: { objectiveId },
