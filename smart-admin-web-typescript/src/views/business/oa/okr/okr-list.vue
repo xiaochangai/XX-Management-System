@@ -13,7 +13,11 @@
       </a-form-item>
 
       <a-form-item label="负责人" class="smart-query-form-item">
-        <EmployeeSelect width="160px" v-model:value="queryForm.ownerEmployeeId" placeholder="请选择" />
+        <EmployeeSelect width="160px" v-model:value="queryForm.ownerEmployeeId" placeholder="请选择" :disabled="mineOnly" />
+      </a-form-item>
+
+      <a-form-item label="只看我负责" class="smart-query-form-item">
+        <a-switch v-model:checked="mineOnly" @change="toggleMineOnly" checked-children="是" un-checked-children="否" />
       </a-form-item>
 
       <a-form-item label="状态" class="smart-query-form-item">
@@ -61,13 +65,21 @@
         <a-button @click="toReviewSummary" type="default">
           复盘汇总
         </a-button>
+        <a-button @click="toFeishuHome" type="default">
+          飞书首页
+        </a-button>
       </div>
       <div class="smart-table-setting-block">
+        <a-radio-group v-model:value="viewMode" size="small" class="smart-margin-right10">
+          <a-radio-button value="card">卡片视图</a-radio-button>
+          <a-radio-button value="table">表格视图</a-radio-button>
+        </a-radio-group>
         <TableOperator v-model="columns" :tableId="TABLE_ID_CONST.BUSINESS.OA.OKR_OBJECTIVE" :refresh="queryList" />
       </div>
     </a-row>
 
     <a-table
+      v-if="viewMode === 'table'"
       size="small"
       :dataSource="tableData"
       :columns="columns"
@@ -102,6 +114,46 @@
       </template>
     </a-table>
 
+    <a-spin v-else :spinning="tableLoading">
+      <div v-if="tableData.length === 0" class="okr-empty">
+        <a-empty />
+      </div>
+      <a-row v-else :gutter="[16, 16]">
+        <a-col v-for="item in tableData" :key="item.objectiveId" :xs="24" :md="12" :xl="8">
+          <a-card size="small" class="okr-card" :hoverable="true">
+            <template #title>
+              <div class="okr-card-title">
+                <a class="okr-card-title-link" @click="toDetail(item.objectiveId)">{{ item.title }}</a>
+                <a-tag size="small" :color="statusColor(item.status)">
+                  {{ $smartEnumPlugin.getDescByValue('OKR_STATUS_ENUM', item.status) }}
+                </a-tag>
+              </div>
+            </template>
+            <template #extra>
+              <a-tag color="geekblue">{{ item.periodName || '—' }}</a-tag>
+            </template>
+            <div class="okr-card-meta">
+              <div>负责人：{{ item.ownerName || '—' }}</div>
+              <div>对齐上级：{{ item.parentObjectiveTitle || '—' }}</div>
+              <div>KR 数：{{ item.keyResultCount || 0 }}</div>
+            </div>
+            <div class="okr-card-progress">
+              <a-progress :percent="Number(item.progress || 0)" size="small" />
+            </div>
+            <div class="okr-card-footer">
+              <div>评分：{{ formatScore(item.score) }}</div>
+              <div>更新时间：{{ item.updateTime || '—' }}</div>
+            </div>
+            <div class="okr-card-actions">
+              <a-button type="link" size="small" @click="toDetail(item.objectiveId)">详情</a-button>
+              <a-button type="link" size="small" @click="edit(item.objectiveId)" v-privilege="'oa:okr:objective:update'">编辑</a-button>
+              <a-button type="link" size="small" danger @click="confirmDelete(item.objectiveId)" v-privilege="'oa:okr:objective:delete'">删除</a-button>
+            </div>
+          </a-card>
+        </a-col>
+      </a-row>
+    </a-spin>
+
     <div class="smart-query-table-page">
       <a-pagination
         showSizeChanger
@@ -134,8 +186,10 @@
   import OkrObjectiveFormDrawer from './components/okr-objective-form-drawer.vue';
   import EmployeeSelect from '/@/components/system/employee-select/index.vue';
   import SmartEnumSelect from '/@/components/framework/smart-enum-select/index.vue';
+  import { useUserStore } from '/@/store/modules/system/user';
 
   const router = useRouter();
+  const userStore = useUserStore();
 
   const columns = ref([
     {
@@ -207,6 +261,9 @@
 
   const periodList = ref([]);
   const objectiveFormRef = ref();
+  const mineOnly = ref(false);
+  const previousOwnerId = ref(undefined);
+  const viewMode = ref('card');
 
   async function queryPeriodList() {
     try {
@@ -235,8 +292,20 @@
     queryList();
   }
 
+  function toggleMineOnly(checked) {
+    if (checked) {
+      previousOwnerId.value = queryForm.ownerEmployeeId;
+      queryForm.ownerEmployeeId = userStore.employeeId ? Number(userStore.employeeId) : undefined;
+    } else {
+      queryForm.ownerEmployeeId = previousOwnerId.value;
+    }
+    queryForm.pageNum = 1;
+    queryList();
+  }
+
   function resetQuery() {
     Object.assign(queryForm, queryFormState);
+    mineOnly.value = false;
     queryList();
   }
 
@@ -270,6 +339,12 @@
   function toReviewSummary() {
     router.push({
       path: '/oa/okr/okr-review-summary',
+    });
+  }
+
+  function toFeishuHome() {
+    router.push({
+      path: '/oa/okr/okr-feishu',
     });
   }
 
@@ -322,3 +397,51 @@
     queryList();
   });
 </script>
+
+<style scoped>
+  .okr-card {
+    border-radius: 10px;
+  }
+
+  .okr-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .okr-card-title-link {
+    font-weight: 600;
+    color: #262626;
+  }
+
+  .okr-card-meta {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    font-size: 12px;
+    color: #595959;
+    margin-bottom: 8px;
+  }
+
+  .okr-card-progress {
+    margin-bottom: 8px;
+  }
+
+  .okr-card-footer {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #8c8c8c;
+    margin-bottom: 6px;
+  }
+
+  .okr-card-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .okr-empty {
+    padding: 24px 0;
+  }
+</style>
