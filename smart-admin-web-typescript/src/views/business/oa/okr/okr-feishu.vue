@@ -101,34 +101,51 @@
               <div class="okr-objective-list">
                 <a-card v-for="item in group.objectives" :key="item.objectiveId" size="small" class="okr-objective-card">
                   <div class="okr-objective-header">
-                    <div class="okr-objective-title" @click="toDetail(item.objectiveId)">
-                      {{ item.title }}
-                    </div>
+                    <div class="okr-objective-title" @click="toDetail(item.objectiveId)">{{ item.title }}</div>
                     <a-tag :color="statusColor(item.status)">
                       {{ $smartEnumPlugin.getDescByValue('OKR_STATUS_ENUM', item.status) }}
                     </a-tag>
                   </div>
 
-                  <div class="okr-objective-meta">
-                    <div>周期：{{ item.periodName || '—' }}</div>
-                    <div>对齐：{{ item.parentObjectiveTitle || '未对齐' }}</div>
-                    <div>权重：100%</div>
-                    <div>总分：{{ formatScore(item.score) }}</div>
+                  <div class="okr-objective-sub">
+                    <span>周期：{{ item.periodName || '—' }}</span>
+                    <span class="okr-sub-divider">·</span>
+                    <span>对齐：{{ item.parentObjectiveTitle || '未对齐' }}</span>
+                  </div>
+
+                  <div class="okr-owner-row">
+                    <a-avatar size="small">{{ (item.ownerName || '未').slice(0, 1) }}</a-avatar>
+                    <span class="okr-owner-name">{{ item.ownerName || '未指定' }}</span>
+                    <span class="okr-owner-tag">负责人</span>
+                  </div>
+
+                  <div class="okr-objective-metrics">
+                    <div class="okr-metric-card">
+                      <div class="okr-metric-value">{{ Math.round(Number(item.progress || 0)) }}%</div>
+                      <div class="okr-metric-label">进度</div>
+                    </div>
+                    <div class="okr-metric-card">
+                      <div class="okr-metric-value">100%</div>
+                      <div class="okr-metric-label">权重</div>
+                    </div>
+                    <div class="okr-metric-card">
+                      <div class="okr-metric-value">{{ formatScore(item.score) }}</div>
+                      <div class="okr-metric-label">总分</div>
+                    </div>
                   </div>
 
                   <div class="okr-objective-progress">
-                    <div class="okr-progress-label">进度</div>
                     <a-progress :percent="Number(item.progress || 0)" size="small" />
                   </div>
 
                   <div class="okr-objective-stats">
                     <div class="okr-stat-item">
-                      <div class="okr-stat-label">KR</div>
+                      <div class="okr-stat-label">KR 数</div>
                       <div class="okr-stat-value">{{ item.keyResultCount || 0 }}</div>
                     </div>
                     <div class="okr-stat-item">
-                      <div class="okr-stat-label">评分</div>
-                      <div class="okr-stat-value">{{ formatScore(item.score) }}</div>
+                      <div class="okr-stat-label">置信度</div>
+                      <div class="okr-stat-value">{{ $smartEnumPlugin.getDescByValue('OKR_CONFIDENCE_ENUM', item.confidence) || '—' }}</div>
                     </div>
                     <div class="okr-stat-item">
                       <div class="okr-stat-label">更新时间</div>
@@ -647,20 +664,68 @@
     cursor: pointer;
   }
 
-  .okr-objective-meta {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 4px 12px;
+  .okr-objective-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #8c8c8c;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  .okr-sub-divider {
+    color: #bfbfbf;
+  }
+
+  .okr-owner-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
     font-size: 12px;
     color: #595959;
-    margin-bottom: 10px;
+  }
+
+  .okr-owner-tag {
+    background: #f5f5f5;
+    border-radius: 10px;
+    padding: 2px 6px;
+    font-size: 11px;
+    color: #8c8c8c;
+  }
+
+  .okr-objective-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .okr-metric-card {
+    background: #f5f7fb;
+    border-radius: 8px;
+    padding: 8px;
+    text-align: center;
+  }
+
+  .okr-metric-value {
+    font-weight: 600;
+    color: #262626;
+    font-size: 14px;
+  }
+
+  .okr-metric-label {
+    font-size: 11px;
+    color: #8c8c8c;
+    margin-top: 2px;
   }
 
   .okr-objective-progress {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
   }
 
   .okr-objective-stats {
@@ -673,7 +738,7 @@
   }
 
   .okr-stat-item {
-    background: #f5f7fb;
+    background: #f8f9fb;
     border-radius: 6px;
     padding: 6px 8px;
   }
@@ -687,12 +752,6 @@
     font-size: 12px;
     color: #262626;
     margin-top: 2px;
-  }
-
-  .okr-progress-label {
-    font-size: 12px;
-    color: #8c8c8c;
-    width: 36px;
   }
 
   .okr-objective-actions {
