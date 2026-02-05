@@ -77,6 +77,7 @@
                 {{ item.periodName }}
               </a-select-option>
             </a-select>
+            <a-button @click="openOwnerPicker">员工列表</a-button>
             <a-button type="primary" @click="addObjective">新建目标</a-button>
           </div>
         </div>
@@ -241,6 +242,37 @@
   <OkrObjectiveFormDrawer ref="objectiveFormRef" @refresh="queryList" />
   <OkrKeyResultFormModal ref="keyResultFormRef" @refresh="queryList" />
   <OkrCheckinFormModal ref="checkinFormRef" @refresh="queryList" />
+
+  <a-drawer v-model:open="ownerDrawerOpen" title="员工列表" width="360" placement="right">
+    <a-input v-model:value="ownerSearch" allowClear placeholder="搜索员工" class="okr-owner-search" />
+    <div class="okr-owner-section">
+      <div class="okr-owner-section-title">我的 OKR</div>
+      <div class="okr-owner-item" :class="{ 'is-active': activeOwnerId === myOwner?.employeeId }" @click="selectOwner(myOwner?.employeeId)">
+        <a-avatar size="small">{{ myOwner?.shortName || '我' }}</a-avatar>
+        <div class="okr-owner-info">
+          <div class="okr-owner-name">{{ myOwner?.ownerName || '我' }}</div>
+          <div class="okr-owner-meta">我负责 · {{ myOwner?.objectiveCount || 0 }} 个目标</div>
+        </div>
+      </div>
+    </div>
+    <div class="okr-owner-section">
+      <div class="okr-owner-section-title">直属下级</div>
+      <div v-if="filteredDirectReports.length === 0" class="okr-side-empty">暂无直属下级</div>
+      <div
+        v-for="owner in filteredDirectReports"
+        :key="owner.employeeId"
+        class="okr-owner-item"
+        :class="{ 'is-active': activeOwnerId === owner.employeeId }"
+        @click="selectOwner(owner.employeeId)"
+      >
+        <a-avatar size="small">{{ owner.shortName }}</a-avatar>
+        <div class="okr-owner-info">
+          <div class="okr-owner-name">{{ owner.ownerName }}</div>
+          <div class="okr-owner-meta">{{ owner.objectiveCount }} 个目标</div>
+        </div>
+      </div>
+    </div>
+  </a-drawer>
 </template>
 
 <script setup lang="ts">
@@ -283,6 +315,8 @@
 
   const activeNav = ref('okr');
   const activeScope = ref('mine');
+  const ownerDrawerOpen = ref(false);
+  const ownerSearch = ref('');
 
   const myOwner = computed(() => {
     return {
@@ -310,6 +344,14 @@
       map.get(item.ownerEmployeeId).objectiveCount += 1;
     });
     return Array.from(map.values());
+  });
+
+  const filteredDirectReports = computed(() => {
+    const keyword = ownerSearch.value.trim();
+    if (!keyword) {
+      return directReportList.value;
+    }
+    return directReportList.value.filter((item) => item.ownerName?.includes(keyword));
   });
 
   const activeOwnerId = ref(undefined);
@@ -436,6 +478,10 @@
       return Math.round(100 / list.length);
     }
     return Math.round((weight / weightSum) * 100);
+  }
+
+  function openOwnerPicker() {
+    ownerDrawerOpen.value = true;
   }
 
   function addObjective() {
@@ -587,6 +633,39 @@
     font-size: 12px;
     color: #bfbfbf;
     padding: 4px 0;
+  }
+
+  .okr-owner-section {
+    margin-bottom: 16px;
+  }
+
+  .okr-owner-section-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: #262626;
+    margin-bottom: 8px;
+  }
+
+  .okr-owner-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .okr-owner-item:hover {
+    background: #f5f7fb;
+  }
+
+  .okr-owner-item.is-active {
+    background: #e6f4ff;
+  }
+
+  .okr-owner-search {
+    margin-bottom: 12px;
   }
 
   .okr-main-card {
