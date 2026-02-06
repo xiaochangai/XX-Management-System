@@ -20,7 +20,31 @@
             {{ item.periodName }}
           </a-select-option>
         </a-select>
+        <div class="okr-map-zoom">
+          <span class="okr-map-label">缩放</span>
+          <a-slider v-model:value="zoomPercent" :min="80" :max="120" :step="5" class="okr-map-slider" />
+          <span class="okr-map-zoom-value">{{ zoomPercent }}%</span>
+        </div>
         <a-button type="primary" ghost @click="queryList">刷新</a-button>
+      </div>
+    </div>
+
+    <div class="okr-map-summary">
+      <div class="okr-map-summary-card">
+        <div class="okr-map-summary-label">目标数</div>
+        <div class="okr-map-summary-value">{{ totalObjectives }}</div>
+      </div>
+      <div class="okr-map-summary-card">
+        <div class="okr-map-summary-label">对齐率</div>
+        <div class="okr-map-summary-value">{{ alignmentRate }}%</div>
+      </div>
+      <div class="okr-map-summary-card">
+        <div class="okr-map-summary-label">平均进度</div>
+        <div class="okr-map-summary-value">{{ averageProgress }}%</div>
+      </div>
+      <div class="okr-map-summary-card">
+        <div class="okr-map-summary-label">根目标</div>
+        <div class="okr-map-summary-value">{{ treeRoots.length }}</div>
       </div>
     </div>
 
@@ -29,9 +53,9 @@
         <div v-if="treeRoots.length === 0" class="okr-map-empty">
           <a-empty description="暂无对齐目标" />
         </div>
-        <div v-else class="okr-map-list">
+        <div v-else class="okr-map-list" :style="{ transform: `scale(${zoomScale})` }">
           <div v-for="root in treeRoots" :key="root.objectiveId" class="okr-map-block">
-            <div class="okr-map-root-card" @click="toDetailById(root.objectiveId)">
+            <div class="okr-map-root-card" :class="{ 'is-risk': isRiskStatus(root.status) }" @click="toDetailById(root.objectiveId)">
               <div class="okr-map-root-header">
                 <div class="okr-map-root-owner">
                   <a-avatar size="small">{{ shortName(root.ownerName) }}</a-avatar>
@@ -56,10 +80,22 @@
                 <span class="okr-sub-divider">·</span>
                 <span>周期 {{ root.periodName || '—' }}</span>
               </div>
+              <div class="okr-map-root-actions">
+                <a-button type="text" size="small" class="okr-map-collapse" @click.stop="toggleRoot(root.objectiveId)">
+                  <DownOutlined :class="{ 'is-collapsed': isRootCollapsed(root.objectiveId) }" />
+                  {{ isRootCollapsed(root.objectiveId) ? '展开' : '收起' }}
+                </a-button>
+              </div>
             </div>
 
-            <div v-if="root.children.length" class="okr-map-children">
-              <div v-for="child in root.children" :key="child.objectiveId" class="okr-map-child-card" @click="toDetailById(child.objectiveId)">
+            <div v-if="root.children.length && !isRootCollapsed(root.objectiveId)" class="okr-map-children">
+              <div
+                v-for="child in root.children"
+                :key="child.objectiveId"
+                class="okr-map-child-card"
+                :class="{ 'is-risk': isRiskStatus(child.status) }"
+                @click="toDetailById(child.objectiveId)"
+              >
                 <div class="okr-map-child-header">
                   <a-avatar size="small">{{ shortName(child.ownerName) }}</a-avatar>
                   <div class="okr-map-child-owner">{{ child.ownerName || '未指定' }}</div>
@@ -71,14 +107,25 @@
                   <span class="okr-sub-divider">·</span>
                   <span>评分 {{ formatScore(child.score) }}</span>
                 </div>
-                <div v-if="child.children.length" class="okr-map-grandchildren">
+                <div class="okr-map-child-actions">
+                  <a-button
+                    v-if="child.children.length"
+                    type="link"
+                    size="small"
+                    class="okr-map-child-toggle"
+                    @click.stop="toggleChild(child.objectiveId)"
+                  >
+                    {{ isChildCollapsed(child.objectiveId) ? '展开对齐' : '收起对齐' }}
+                  </a-button>
+                </div>
+                <div v-if="child.children.length && !isChildCollapsed(child.objectiveId)" class="okr-map-grandchildren">
                   <a-tag v-for="grand in child.children" :key="grand.objectiveId" class="okr-map-grand-tag">
                     {{ shortName(grand.ownerName) }} · {{ trimTitle(grand.title) }}
                   </a-tag>
                 </div>
               </div>
             </div>
-            <div v-else class="okr-map-children-empty">暂无对齐目标</div>
+            <div v-else-if="!isRootCollapsed(root.objectiveId)" class="okr-map-children-empty">暂无对齐目标</div>
           </div>
         </div>
       </a-spin>
@@ -89,6 +136,7 @@
 <script setup lang="ts">
   import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
+  import { DownOutlined } from '@ant-design/icons-vue';
   import { okrApi } from '/@/api/business/oa/okr-api';
   import { PAGE_SIZE } from '/@/constants/common-const';
   import { smartSentry } from '/@/lib/smart-sentry';
@@ -102,6 +150,9 @@
   const tableLoading = ref(false);
   const objectiveList = ref([]);
   const activeNav = ref('map');
+  const zoomPercent = ref(100);
+  const collapsedRoots = ref(new Set());
+  const collapsedChildren = ref(new Set());
 
   async function queryPeriodList() {
     try {
@@ -136,6 +187,22 @@
   }
 
   const treeRoots = computed(() => buildTree(objectiveList.value));
+  const totalObjectives = computed(() => objectiveList.value.length);
+  const alignmentRate = computed(() => {
+    if (!objectiveList.value.length) {
+      return 0;
+    }
+    const aligned = objectiveList.value.filter((item) => item.parentObjectiveId).length;
+    return Math.round((aligned / objectiveList.value.length) * 100);
+  });
+  const averageProgress = computed(() => {
+    if (!objectiveList.value.length) {
+      return 0;
+    }
+    const total = objectiveList.value.reduce((sum, item) => sum + Number(item.progress || 0), 0);
+    return Math.round(total / objectiveList.value.length);
+  });
+  const zoomScale = computed(() => zoomPercent.value / 100);
 
   async function queryList() {
     tableLoading.value = true;
@@ -183,6 +250,10 @@
     }
   }
 
+  function isRiskStatus(value) {
+    return value === 2 || value === 3;
+  }
+
   function formatProgress(value) {
     return Math.round(Number(value || 0));
   }
@@ -207,6 +278,30 @@
     }
     const text = String(value);
     return text.length > 16 ? `${text.slice(0, 16)}…` : text;
+  }
+
+  function toggleRoot(objectiveId) {
+    if (collapsedRoots.value.has(objectiveId)) {
+      collapsedRoots.value.delete(objectiveId);
+    } else {
+      collapsedRoots.value.add(objectiveId);
+    }
+  }
+
+  function isRootCollapsed(objectiveId) {
+    return collapsedRoots.value.has(objectiveId);
+  }
+
+  function toggleChild(objectiveId) {
+    if (collapsedChildren.value.has(objectiveId)) {
+      collapsedChildren.value.delete(objectiveId);
+    } else {
+      collapsedChildren.value.add(objectiveId);
+    }
+  }
+
+  function isChildCollapsed(objectiveId) {
+    return collapsedChildren.value.has(objectiveId);
   }
 
   function onNavChange() {
@@ -295,6 +390,47 @@
     width: 200px;
   }
 
+  .okr-map-zoom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .okr-map-slider {
+    width: 140px;
+  }
+
+  .okr-map-zoom-value {
+    font-size: 12px;
+    color: #595959;
+    min-width: 44px;
+  }
+
+  .okr-map-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+  }
+
+  .okr-map-summary-card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .okr-map-summary-label {
+    font-size: 12px;
+    color: #8c8c8c;
+  }
+
+  .okr-map-summary-value {
+    margin-top: 4px;
+    font-size: 18px;
+    color: #262626;
+    font-weight: 600;
+  }
+
   .okr-map-card {
     border-radius: 12px;
     background: #ffffff;
@@ -309,6 +445,8 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    transform-origin: top left;
+    transition: transform 0.2s;
   }
 
   .okr-map-block {
@@ -324,10 +462,16 @@
     border: 1px solid #f0f0f0;
     cursor: pointer;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    position: relative;
   }
 
   .okr-map-root-card:hover {
     border-color: #91caff;
+  }
+
+  .okr-map-root-card.is-risk {
+    border-color: #ffd666;
+    box-shadow: 0 0 0 1px rgba(250, 173, 20, 0.2);
   }
 
   .okr-map-root-header {
@@ -382,6 +526,27 @@
     color: #8c8c8c;
   }
 
+  .okr-map-root-actions {
+    position: absolute;
+    right: 12px;
+    bottom: 8px;
+  }
+
+  .okr-map-collapse {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #595959;
+  }
+
+  .okr-map-collapse :deep(.anticon) {
+    transition: transform 0.2s;
+  }
+
+  .okr-map-collapse :deep(.anticon.is-collapsed) {
+    transform: rotate(-90deg);
+  }
+
   .okr-map-children {
     position: relative;
     margin-top: 16px;
@@ -407,10 +572,25 @@
     border: 1px solid #f0f0f0;
     cursor: pointer;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    position: relative;
   }
 
   .okr-map-child-card:hover {
     border-color: #91caff;
+  }
+
+  .okr-map-child-card.is-risk {
+    border-color: #ffd666;
+  }
+
+  .okr-map-child-card::before {
+    content: '';
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    width: 2px;
+    height: 12px;
+    background: #e6e9f0;
   }
 
   .okr-map-child-header {
@@ -436,6 +616,14 @@
     margin-top: 4px;
     font-size: 12px;
     color: #8c8c8c;
+  }
+
+  .okr-map-child-actions {
+    margin-top: 6px;
+  }
+
+  .okr-map-child-toggle {
+    padding: 0;
   }
 
   .okr-map-grandchildren {
