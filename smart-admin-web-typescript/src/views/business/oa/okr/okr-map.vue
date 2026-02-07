@@ -14,6 +14,12 @@
     <div class="okr-map-toolbar">
       <div class="okr-map-title">对齐视图</div>
       <div class="okr-map-filters">
+        <a-radio-group v-model:value="filterMode" size="small" class="okr-map-filter-tabs">
+          <a-radio-button value="all">全部</a-radio-button>
+          <a-radio-button value="mine">我负责</a-radio-button>
+          <a-radio-button value="risk">有风险</a-radio-button>
+          <a-radio-button value="unaligned">未对齐</a-radio-button>
+        </a-radio-group>
         <span class="okr-map-label">周期</span>
         <a-select v-model:value="periodId" class="okr-map-select" @change="queryList" allowClear placeholder="全部">
           <a-select-option v-for="item in periodList" :key="item.periodId" :value="item.periodId">
@@ -227,16 +233,19 @@
   import { okrApi } from '/@/api/business/oa/okr-api';
   import { PAGE_SIZE } from '/@/constants/common-const';
   import { smartSentry } from '/@/lib/smart-sentry';
+  import { useUserStore } from '/@/store/modules/system/user';
 
   const router = useRouter();
   const route = useRoute();
   const smartEnumPlugin = getCurrentInstance().appContext.config.globalProperties.$smartEnumPlugin;
+  const userStore = useUserStore();
 
   const periodList = ref([]);
   const periodId = ref(undefined);
   const tableLoading = ref(false);
   const objectiveList = ref([]);
   const activeNav = ref('map');
+  const filterMode = ref('all');
   const zoomPercent = ref(100);
   const collapsedRoots = ref(new Set());
   const collapsedChildren = ref(new Set());
@@ -273,21 +282,75 @@
     return roots;
   }
 
-  const treeRoots = computed(() => buildTree(objectiveList.value));
-  const totalObjectives = computed(() => objectiveList.value.length);
+  function flattenTree(nodes) {
+    const result = [];
+    nodes.forEach((node) => {
+      result.push(node);
+      if (node.children?.length) {
+        result.push(...flattenTree(node.children));
+      }
+    });
+    return result;
+  }
+
+  function applyFilter(roots) {
+    if (filterMode.value === 'all') {
+      return roots;
+    }
+    const isMine = (node) => Number(node.ownerEmployeeId) === Number(userStore.employeeId);
+    const isRisk = (node) => isRiskStatus(node.status);
+    const isUnaligned = (node) => !node.parentObjectiveId;
+    const predicate = (node) => {
+      switch (filterMode.value) {
+        case 'mine':
+          return isMine(node);
+        case 'risk':
+          return isRisk(node);
+        case 'unaligned':
+          return isUnaligned(node);
+        default:
+          return true;
+      }
+    };
+
+    const includeDescendants = filterMode.value === 'unaligned';
+    const filterNode = (node) => {
+      const childMatches = (node.children || []).map(filterNode).filter(Boolean);
+      const matched = predicate(node);
+      if (matched) {
+        return {
+          ...node,
+          children: includeDescendants ? node.children : childMatches,
+        };
+      }
+      if (childMatches.length) {
+        return {
+          ...node,
+          children: childMatches,
+        };
+      }
+      return null;
+    };
+
+    return roots.map(filterNode).filter(Boolean);
+  }
+
+  const treeRoots = computed(() => applyFilter(buildTree(objectiveList.value)));
+  const filteredFlatList = computed(() => flattenTree(treeRoots.value));
+  const totalObjectives = computed(() => filteredFlatList.value.length);
   const alignmentRate = computed(() => {
-    if (!objectiveList.value.length) {
+    if (!filteredFlatList.value.length) {
       return 0;
     }
-    const aligned = objectiveList.value.filter((item) => item.parentObjectiveId).length;
-    return Math.round((aligned / objectiveList.value.length) * 100);
+    const aligned = filteredFlatList.value.filter((item) => item.parentObjectiveId).length;
+    return Math.round((aligned / filteredFlatList.value.length) * 100);
   });
   const averageProgress = computed(() => {
-    if (!objectiveList.value.length) {
+    if (!filteredFlatList.value.length) {
       return 0;
     }
-    const total = objectiveList.value.reduce((sum, item) => sum + Number(item.progress || 0), 0);
-    return Math.round(total / objectiveList.value.length);
+    const total = filteredFlatList.value.reduce((sum, item) => sum + Number(item.progress || 0), 0);
+    return Math.round(total / filteredFlatList.value.length);
   });
   const zoomScale = computed(() => zoomPercent.value / 100);
 
@@ -495,6 +558,11 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+  }
+
+  .okr-map-filter-tabs {
+    display: flex;
+    gap: 6px;
   }
 
   .okr-map-label {
