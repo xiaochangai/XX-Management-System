@@ -110,6 +110,11 @@
                   </div>
                 </div>
                 <div class="okr-map-root-title">目标：{{ root.title }}</div>
+                <div class="okr-map-root-progress-row">
+                  <div class="okr-map-status-dot" :class="statusDotClass(root.status)"></div>
+                  <a-progress :percent="formatProgress(root.progress)" size="small" :showInfo="false" />
+                  <span class="okr-map-progress-text">{{ formatProgress(root.progress) }}%</span>
+                </div>
                 <div class="okr-map-root-meta">
                   <span>KR {{ root.keyResultCount || 0 }}</span>
                   <span class="okr-sub-divider">·</span>
@@ -176,6 +181,11 @@
                     <a-tag :color="statusColor(child.status)">{{ statusDesc(child.status) }}</a-tag>
                   </div>
                   <div class="okr-map-child-title">{{ child.title }}</div>
+                  <div class="okr-map-child-progress-row">
+                    <div class="okr-map-status-dot" :class="statusDotClass(child.status)"></div>
+                    <a-progress :percent="formatProgress(child.progress)" size="small" :showInfo="false" />
+                    <span class="okr-map-progress-text">{{ formatProgress(child.progress) }}%</span>
+                  </div>
                   <div class="okr-map-child-meta">
                     <span>{{ formatProgress(child.progress) }}%</span>
                     <span class="okr-sub-divider">·</span>
@@ -329,6 +339,19 @@
 
   function isRiskStatus(value) {
     return value === 2 || value === 3;
+  }
+
+  function statusDotClass(value) {
+    switch (value) {
+      case 2:
+        return 'is-risk';
+      case 3:
+        return 'is-delay';
+      case 4:
+        return 'is-success';
+      default:
+        return 'is-normal';
+    }
   }
 
   function formatProgress(value) {
@@ -627,6 +650,13 @@
     color: #262626;
   }
 
+  .okr-map-root-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
   .okr-map-root-meta {
     margin-top: 6px;
     font-size: 12px;
@@ -730,10 +760,48 @@
     color: #262626;
   }
 
+  .okr-map-child-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
   .okr-map-child-meta {
     margin-top: 4px;
     font-size: 12px;
     color: #8c8c8c;
+  }
+
+  .okr-map-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d9d9d9;
+    flex-shrink: 0;
+  }
+
+  .okr-map-status-dot.is-normal {
+    background: #1677ff;
+  }
+
+  .okr-map-status-dot.is-risk {
+    background: #faad14;
+  }
+
+  .okr-map-status-dot.is-delay {
+    background: #ff4d4f;
+  }
+
+  .okr-map-status-dot.is-success {
+    background: #52c41a;
+  }
+
+  .okr-map-progress-text {
+    font-size: 12px;
+    color: #595959;
+    min-width: 36px;
+    text-align: right;
   }
 
   .okr-map-child-actions {
