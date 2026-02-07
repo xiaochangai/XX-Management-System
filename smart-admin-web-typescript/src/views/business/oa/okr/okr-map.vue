@@ -20,6 +20,8 @@
             {{ item.periodName }}
           </a-select-option>
         </a-select>
+        <a-button @click="expandAll" class="okr-map-action">展开全部</a-button>
+        <a-button @click="collapseAll" class="okr-map-action">收起全部</a-button>
         <div class="okr-map-zoom">
           <span class="okr-map-label">缩放</span>
           <a-slider v-model:value="zoomPercent" :min="80" :max="120" :step="5" class="okr-map-slider" />
@@ -55,75 +57,150 @@
         </div>
         <div v-else class="okr-map-list" :style="{ transform: `scale(${zoomScale})` }">
           <div v-for="root in treeRoots" :key="root.objectiveId" class="okr-map-block">
-            <div class="okr-map-root-card" :class="{ 'is-risk': isRiskStatus(root.status) }" @click="toDetailById(root.objectiveId)">
-              <div class="okr-map-root-header">
-                <div class="okr-map-root-owner">
-                  <a-avatar size="small">{{ shortName(root.ownerName) }}</a-avatar>
-                  <div>
-                    <div class="okr-map-root-name">{{ root.ownerName || '未指定' }}</div>
-                    <a-tag :color="statusColor(root.status)">{{ statusDesc(root.status) }}</a-tag>
-                  </div>
+            <a-popover placement="right" trigger="hover" overlayClassName="okr-map-popover">
+              <template #content>
+                <div class="okr-map-popover-title">{{ root.title }}</div>
+                <div class="okr-map-popover-row">
+                  <span>负责人</span>
+                  <span>{{ root.ownerName || '未指定' }}</span>
                 </div>
-                <div class="okr-map-root-progress">
-                  <a-progress type="circle" :percent="formatProgress(root.progress)" :width="46" :strokeWidth="8" />
-                  <div class="okr-map-root-metric">
-                    <div class="okr-map-root-label">进度</div>
-                    <div class="okr-map-root-value">{{ formatProgress(root.progress) }}%</div>
-                  </div>
+                <div class="okr-map-popover-row">
+                  <span>状态</span>
+                  <span>{{ statusDesc(root.status) }}</span>
                 </div>
-              </div>
-              <div class="okr-map-root-title">目标：{{ root.title }}</div>
-              <div class="okr-map-root-meta">
-                <span>KR {{ root.keyResultCount || 0 }}</span>
-                <span class="okr-sub-divider">·</span>
-                <span>评分 {{ formatScore(root.score) }}</span>
-                <span class="okr-sub-divider">·</span>
-                <span>周期 {{ root.periodName || '—' }}</span>
-              </div>
-              <div class="okr-map-root-actions">
-                <a-button type="text" size="small" class="okr-map-collapse" @click.stop="toggleRoot(root.objectiveId)">
-                  <DownOutlined :class="{ 'is-collapsed': isRootCollapsed(root.objectiveId) }" />
-                  {{ isRootCollapsed(root.objectiveId) ? '展开' : '收起' }}
-                </a-button>
-              </div>
-            </div>
-
-            <div v-if="root.children.length && !isRootCollapsed(root.objectiveId)" class="okr-map-children">
+                <div class="okr-map-popover-row">
+                  <span>进度</span>
+                  <span>{{ formatProgress(root.progress) }}%</span>
+                </div>
+                <div class="okr-map-popover-row">
+                  <span>KR 数</span>
+                  <span>{{ root.keyResultCount || 0 }}</span>
+                </div>
+                <div class="okr-map-popover-row">
+                  <span>评分</span>
+                  <span>{{ formatScore(root.score) }}</span>
+                </div>
+                <div class="okr-map-popover-row">
+                  <span>周期</span>
+                  <span>{{ root.periodName || '—' }}</span>
+                </div>
+              </template>
               <div
-                v-for="child in root.children"
-                :key="child.objectiveId"
-                class="okr-map-child-card"
-                :class="{ 'is-risk': isRiskStatus(child.status) }"
-                @click="toDetailById(child.objectiveId)"
+                class="okr-map-root-card"
+                :class="{
+                  'is-risk': isRiskStatus(root.status),
+                  'has-children': root.children.length && !isRootCollapsed(root.objectiveId),
+                }"
+                @click="toDetailById(root.objectiveId)"
               >
-                <div class="okr-map-child-header">
-                  <a-avatar size="small">{{ shortName(child.ownerName) }}</a-avatar>
-                  <div class="okr-map-child-owner">{{ child.ownerName || '未指定' }}</div>
-                  <a-tag :color="statusColor(child.status)">{{ statusDesc(child.status) }}</a-tag>
+                <div class="okr-map-root-header">
+                  <div class="okr-map-root-owner">
+                    <a-avatar size="small">{{ shortName(root.ownerName) }}</a-avatar>
+                    <div>
+                      <div class="okr-map-root-name">{{ root.ownerName || '未指定' }}</div>
+                      <a-tag :color="statusColor(root.status)">{{ statusDesc(root.status) }}</a-tag>
+                    </div>
+                  </div>
+                  <div class="okr-map-root-progress">
+                    <a-progress type="circle" :percent="formatProgress(root.progress)" :width="46" :strokeWidth="8" />
+                    <div class="okr-map-root-metric">
+                      <div class="okr-map-root-label">进度</div>
+                      <div class="okr-map-root-value">{{ formatProgress(root.progress) }}%</div>
+                    </div>
+                  </div>
                 </div>
-                <div class="okr-map-child-title">{{ child.title }}</div>
-                <div class="okr-map-child-meta">
-                  <span>{{ formatProgress(child.progress) }}%</span>
+                <div class="okr-map-root-title">目标：{{ root.title }}</div>
+                <div class="okr-map-root-meta">
+                  <span>KR {{ root.keyResultCount || 0 }}</span>
                   <span class="okr-sub-divider">·</span>
-                  <span>评分 {{ formatScore(child.score) }}</span>
+                  <span>评分 {{ formatScore(root.score) }}</span>
+                  <span class="okr-sub-divider">·</span>
+                  <span>周期 {{ root.periodName || '—' }}</span>
                 </div>
-                <div class="okr-map-child-actions">
-                  <a-button
-                    v-if="child.children.length"
-                    type="link"
-                    size="small"
-                    class="okr-map-child-toggle"
-                    @click.stop="toggleChild(child.objectiveId)"
-                  >
-                    {{ isChildCollapsed(child.objectiveId) ? '展开对齐' : '收起对齐' }}
+                <div class="okr-map-root-actions">
+                  <a-button type="text" size="small" class="okr-map-collapse" @click.stop="toggleRoot(root.objectiveId)">
+                    <DownOutlined :class="{ 'is-collapsed': isRootCollapsed(root.objectiveId) }" />
+                    {{ isRootCollapsed(root.objectiveId) ? '展开' : '收起' }}
                   </a-button>
                 </div>
-                <div v-if="child.children.length && !isChildCollapsed(child.objectiveId)" class="okr-map-grandchildren">
-                  <a-tag v-for="grand in child.children" :key="grand.objectiveId" class="okr-map-grand-tag">
-                    {{ shortName(grand.ownerName) }} · {{ trimTitle(grand.title) }}
-                  </a-tag>
-                </div>
               </div>
+            </a-popover>
+
+            <div
+              v-if="root.children.length && !isRootCollapsed(root.objectiveId)"
+              class="okr-map-children"
+              :class="{ 'is-linked': root.children.length }"
+            >
+              <a-popover
+                v-for="child in root.children"
+                :key="child.objectiveId"
+                placement="right"
+                trigger="hover"
+                overlayClassName="okr-map-popover"
+              >
+                <template #content>
+                  <div class="okr-map-popover-title">{{ child.title }}</div>
+                  <div class="okr-map-popover-row">
+                    <span>负责人</span>
+                    <span>{{ child.ownerName || '未指定' }}</span>
+                  </div>
+                  <div class="okr-map-popover-row">
+                    <span>状态</span>
+                    <span>{{ statusDesc(child.status) }}</span>
+                  </div>
+                  <div class="okr-map-popover-row">
+                    <span>进度</span>
+                    <span>{{ formatProgress(child.progress) }}%</span>
+                  </div>
+                  <div class="okr-map-popover-row">
+                    <span>评分</span>
+                    <span>{{ formatScore(child.score) }}</span>
+                  </div>
+                  <div class="okr-map-popover-row">
+                    <span>周期</span>
+                    <span>{{ child.periodName || '—' }}</span>
+                  </div>
+                  <div class="okr-map-popover-row">
+                    <span>对齐到</span>
+                    <span>{{ root.ownerName || '未指定' }}</span>
+                  </div>
+                </template>
+                <div
+                  class="okr-map-child-card"
+                  :class="{ 'is-risk': isRiskStatus(child.status) }"
+                  @click="toDetailById(child.objectiveId)"
+                >
+                  <div class="okr-map-child-header">
+                    <a-avatar size="small">{{ shortName(child.ownerName) }}</a-avatar>
+                    <div class="okr-map-child-owner">{{ child.ownerName || '未指定' }}</div>
+                    <a-tag :color="statusColor(child.status)">{{ statusDesc(child.status) }}</a-tag>
+                  </div>
+                  <div class="okr-map-child-title">{{ child.title }}</div>
+                  <div class="okr-map-child-meta">
+                    <span>{{ formatProgress(child.progress) }}%</span>
+                    <span class="okr-sub-divider">·</span>
+                    <span>评分 {{ formatScore(child.score) }}</span>
+                    <span class="okr-sub-divider">·</span>
+                    <span>对齐到 {{ root.ownerName || '—' }}</span>
+                  </div>
+                  <div class="okr-map-child-actions">
+                    <a-button
+                      v-if="child.children.length"
+                      type="link"
+                      size="small"
+                      class="okr-map-child-toggle"
+                      @click.stop="toggleChild(child.objectiveId)"
+                    >
+                      {{ isChildCollapsed(child.objectiveId) ? '展开对齐' : '收起对齐' }}
+                    </a-button>
+                  </div>
+                  <div v-if="child.children.length && !isChildCollapsed(child.objectiveId)" class="okr-map-grandchildren">
+                    <a-tag v-for="grand in child.children" :key="grand.objectiveId" class="okr-map-grand-tag">
+                      {{ shortName(grand.ownerName) }} · {{ trimTitle(grand.title) }}
+                    </a-tag>
+                  </div>
+                </div>
+              </a-popover>
             </div>
             <div v-else-if="!isRootCollapsed(root.objectiveId)" class="okr-map-children-empty">暂无对齐目标</div>
           </div>
@@ -281,11 +358,13 @@
   }
 
   function toggleRoot(objectiveId) {
-    if (collapsedRoots.value.has(objectiveId)) {
-      collapsedRoots.value.delete(objectiveId);
+    const next = new Set(collapsedRoots.value);
+    if (next.has(objectiveId)) {
+      next.delete(objectiveId);
     } else {
-      collapsedRoots.value.add(objectiveId);
+      next.add(objectiveId);
     }
+    collapsedRoots.value = next;
   }
 
   function isRootCollapsed(objectiveId) {
@@ -293,15 +372,29 @@
   }
 
   function toggleChild(objectiveId) {
-    if (collapsedChildren.value.has(objectiveId)) {
-      collapsedChildren.value.delete(objectiveId);
+    const next = new Set(collapsedChildren.value);
+    if (next.has(objectiveId)) {
+      next.delete(objectiveId);
     } else {
-      collapsedChildren.value.add(objectiveId);
+      next.add(objectiveId);
     }
+    collapsedChildren.value = next;
   }
 
   function isChildCollapsed(objectiveId) {
     return collapsedChildren.value.has(objectiveId);
+  }
+
+  function collapseAll() {
+    const rootIds = treeRoots.value.map((item) => item.objectiveId);
+    const childIds = treeRoots.value.flatMap((item) => item.children.map((child) => child.objectiveId));
+    collapsedRoots.value = new Set(rootIds);
+    collapsedChildren.value = new Set(childIds);
+  }
+
+  function expandAll() {
+    collapsedRoots.value = new Set();
+    collapsedChildren.value = new Set();
   }
 
   function onNavChange() {
@@ -390,6 +483,10 @@
     width: 200px;
   }
 
+  .okr-map-action {
+    background: #ffffff;
+  }
+
   .okr-map-zoom {
     display: flex;
     align-items: center;
@@ -463,6 +560,16 @@
     cursor: pointer;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     position: relative;
+  }
+
+  .okr-map-root-card.has-children::after {
+    content: '';
+    position: absolute;
+    left: 32px;
+    bottom: -12px;
+    width: 2px;
+    height: 12px;
+    background: #e6e9f0;
   }
 
   .okr-map-root-card:hover {
@@ -549,18 +656,19 @@
 
   .okr-map-children {
     position: relative;
-    margin-top: 16px;
+    margin-top: 18px;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 12px;
+    padding-left: 20px;
   }
 
-  .okr-map-children::before {
+  .okr-map-children.is-linked::before {
     content: '';
     position: absolute;
-    top: -8px;
-    left: 12px;
-    right: 12px;
+    top: -10px;
+    left: 20px;
+    right: 20px;
     height: 2px;
     background: #e6e9f0;
   }
@@ -590,6 +698,16 @@
     left: 20px;
     width: 2px;
     height: 12px;
+    background: #e6e9f0;
+  }
+
+  .okr-map-child-card::after {
+    content: '';
+    position: absolute;
+    left: -12px;
+    top: 20px;
+    width: 12px;
+    height: 2px;
     background: #e6e9f0;
   }
 
@@ -624,6 +742,21 @@
 
   .okr-map-child-toggle {
     padding: 0;
+  }
+
+  .okr-map-popover-title {
+    font-weight: 600;
+    color: #262626;
+    margin-bottom: 6px;
+  }
+
+  .okr-map-popover-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+    color: #595959;
+    margin-bottom: 4px;
   }
 
   .okr-map-grandchildren {
