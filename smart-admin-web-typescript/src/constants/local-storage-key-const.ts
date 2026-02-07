@@ -30,4 +30,6 @@ export default {
   NOTICE_READ: `${KEY_PREFIX}notice_read`,
   // 待办
   TO_BE_DONE: `${KEY_PREFIX}to_be_done`,
+  // OKR 对齐视图建议关注忽略
+  OKR_MAP_SUGGESTION_DISMISSED: `${KEY_PREFIX}okr_map_suggestion_dismissed`,
 };

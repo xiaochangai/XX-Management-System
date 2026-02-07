@@ -325,6 +325,8 @@
   import { DownOutlined } from '@ant-design/icons-vue';
   import { okrApi } from '/@/api/business/oa/okr-api';
   import { PAGE_SIZE } from '/@/constants/common-const';
+  import localKey from '/@/constants/local-storage-key-const';
+  import { localRead, localSave } from '/@/utils/local-util';
   import { smartSentry } from '/@/lib/smart-sentry';
   import { useUserStore } from '/@/store/modules/system/user';
 
@@ -607,6 +609,7 @@
     const next = new Set(dismissedSuggestions.value);
     next.add(type);
     dismissedSuggestions.value = next;
+    persistDismissedSuggestions();
     if (expandedSuggestion.value === type) {
       expandedSuggestion.value = null;
     }
@@ -614,6 +617,25 @@
 
   function isSuggestionDismissed(type) {
     return dismissedSuggestions.value.has(type);
+  }
+
+  function persistDismissedSuggestions() {
+    localSave(localKey.OKR_MAP_SUGGESTION_DISMISSED, JSON.stringify(Array.from(dismissedSuggestions.value)));
+  }
+
+  function loadDismissedSuggestions() {
+    const raw = localRead(localKey.OKR_MAP_SUGGESTION_DISMISSED);
+    if (!raw) {
+      return;
+    }
+    try {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        dismissedSuggestions.value = new Set(list);
+      }
+    } catch (e) {
+      // ignore malformed storage
+    }
   }
 
   function onNavChange() {
@@ -644,6 +666,7 @@
     await queryPeriodList();
     await queryList();
     syncActiveNav();
+    loadDismissedSuggestions();
   });
 
   watch(
