@@ -45,15 +45,33 @@
       <div class="okr-map-summary-card">
         <div class="okr-map-summary-label">对齐率</div>
         <div class="okr-map-summary-value">{{ alignmentRate }}%</div>
+        <div class="okr-map-summary-track">
+          <div class="okr-map-summary-bar" :style="{ width: `${alignmentRate}%` }"></div>
+        </div>
       </div>
       <div class="okr-map-summary-card">
         <div class="okr-map-summary-label">平均进度</div>
         <div class="okr-map-summary-value">{{ averageProgress }}%</div>
+        <div class="okr-map-summary-track">
+          <div class="okr-map-summary-bar is-success" :style="{ width: `${averageProgress}%` }"></div>
+        </div>
       </div>
       <div class="okr-map-summary-card">
         <div class="okr-map-summary-label">根目标</div>
         <div class="okr-map-summary-value">{{ treeRoots.length }}</div>
       </div>
+    </div>
+
+    <div v-if="filterMode !== 'all'" class="okr-map-alert">
+      <div class="okr-map-alert-title">已应用筛选</div>
+      <div class="okr-map-alert-content">
+        当前为
+        <span class="okr-map-alert-tag">{{ filterLabel }}</span>
+        视图
+        <span>·</span>
+        <span>共 {{ totalObjectives }} 个目标</span>
+      </div>
+      <a-button type="link" size="small" @click="resetFilter">清除筛选</a-button>
     </div>
 
     <a-card size="small" :bordered="false" class="okr-map-card">
@@ -338,6 +356,18 @@
   const treeRoots = computed(() => applyFilter(buildTree(objectiveList.value)));
   const filteredFlatList = computed(() => flattenTree(treeRoots.value));
   const totalObjectives = computed(() => filteredFlatList.value.length);
+  const filterLabel = computed(() => {
+    switch (filterMode.value) {
+      case 'mine':
+        return '我负责';
+      case 'risk':
+        return '有风险';
+      case 'unaligned':
+        return '未对齐';
+      default:
+        return '全部';
+    }
+  });
   const alignmentRate = computed(() => {
     if (!filteredFlatList.value.length) {
       return 0;
@@ -483,6 +513,10 @@
     collapsedChildren.value = new Set();
   }
 
+  function resetFilter() {
+    filterMode.value = 'all';
+  }
+
   function onNavChange() {
     switch (activeNav.value) {
       case 'okr':
@@ -619,10 +653,62 @@
     font-weight: 600;
   }
 
+  .okr-map-summary-track {
+    height: 6px;
+    background: #f0f0f0;
+    border-radius: 999px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+
+  .okr-map-summary-bar {
+    height: 100%;
+    background: #1677ff;
+    border-radius: 999px;
+  }
+
+  .okr-map-summary-bar.is-success {
+    background: #52c41a;
+  }
+
   .okr-map-card {
     border-radius: 12px;
     background: #ffffff;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .okr-map-alert {
+    background: #fff7e6;
+    border: 1px solid #ffd591;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .okr-map-alert-title {
+    font-weight: 600;
+    color: #d46b08;
+  }
+
+  .okr-map-alert-content {
+    font-size: 12px;
+    color: #8c8c8c;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .okr-map-alert-tag {
+    background: #fff1b8;
+    color: #ad6800;
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-weight: 600;
   }
 
   .okr-map-empty {
