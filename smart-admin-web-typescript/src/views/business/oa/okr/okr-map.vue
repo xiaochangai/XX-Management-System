@@ -74,6 +74,39 @@
       <a-button type="link" size="small" @click="resetFilter">清除筛选</a-button>
     </div>
 
+    <div class="okr-map-suggestions">
+      <div class="okr-map-suggestion-card">
+        <div class="okr-map-suggestion-header">
+          <span class="okr-map-suggestion-title">建议关注</span>
+          <a-button type="link" size="small">忽略</a-button>
+        </div>
+        <div class="okr-map-suggestion-body">
+          有 <strong>{{ riskObjectiveCount }}</strong> 个目标处于有风险或延期状态
+        </div>
+        <div class="okr-map-suggestion-meta">建议：关注风险目标并及时对齐资源</div>
+      </div>
+      <div class="okr-map-suggestion-card">
+        <div class="okr-map-suggestion-header">
+          <span class="okr-map-suggestion-title">建议关注</span>
+          <a-button type="link" size="small">忽略</a-button>
+        </div>
+        <div class="okr-map-suggestion-body">
+          有 <strong>{{ unalignedObjectiveCount }}</strong> 个目标尚未对齐
+        </div>
+        <div class="okr-map-suggestion-meta">建议：尽快建立对齐关系，避免目标偏移</div>
+      </div>
+      <div class="okr-map-suggestion-card">
+        <div class="okr-map-suggestion-header">
+          <span class="okr-map-suggestion-title">建议关注</span>
+          <a-button type="link" size="small">忽略</a-button>
+        </div>
+        <div class="okr-map-suggestion-body">
+          平均进度 <strong>{{ averageProgress }}%</strong>，低于 60%
+        </div>
+        <div class="okr-map-suggestion-meta">建议：检查阻塞项，推动阶段性里程碑完成</div>
+      </div>
+    </div>
+
     <a-card size="small" :bordered="false" class="okr-map-card">
       <a-spin :spinning="tableLoading">
         <div v-if="treeRoots.length === 0" class="okr-map-empty">
@@ -375,6 +408,8 @@
     const aligned = filteredFlatList.value.filter((item) => item.parentObjectiveId).length;
     return Math.round((aligned / filteredFlatList.value.length) * 100);
   });
+  const unalignedObjectiveCount = computed(() => filteredFlatList.value.filter((item) => !item.parentObjectiveId).length);
+  const riskObjectiveCount = computed(() => filteredFlatList.value.filter((item) => isRiskStatus(item.status)).length);
   const averageProgress = computed(() => {
     if (!filteredFlatList.value.length) {
       return 0;
@@ -709,6 +744,43 @@
     padding: 2px 6px;
     border-radius: 999px;
     font-weight: 600;
+  }
+
+  .okr-map-suggestions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+
+  .okr-map-suggestion-card {
+    background: #ffffff;
+    border: 1px solid #ffd591;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .okr-map-suggestion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .okr-map-suggestion-title {
+    font-weight: 600;
+    color: #d46b08;
+  }
+
+  .okr-map-suggestion-body {
+    font-size: 13px;
+    color: #262626;
+  }
+
+  .okr-map-suggestion-meta {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #8c8c8c;
   }
 
   .okr-map-empty {
