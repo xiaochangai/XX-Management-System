@@ -156,7 +156,12 @@
         </div>
         <div v-else class="okr-map-list" :style="{ transform: `scale(${zoomScale})` }">
           <div v-for="root in treeRoots" :key="root.objectiveId" class="okr-map-block">
-            <a-popover placement="right" trigger="hover" overlayClassName="okr-map-popover">
+            <a-popover
+              placement="right"
+              trigger="hover"
+              overlayClassName="okr-map-popover"
+              @visibleChange="(visible) => handlePopoverVisible(root.objectiveId, visible)"
+            >
               <template #content>
                 <div class="okr-map-popover-title">{{ root.title }}</div>
                 <div class="okr-map-popover-row">
@@ -182,6 +187,15 @@
                 <div class="okr-map-popover-row">
                   <span>周期</span>
                   <span>{{ root.periodName || '—' }}</span>
+                </div>
+                <div class="okr-map-popover-divider"></div>
+                <div class="okr-map-popover-subtitle">关键结果</div>
+                <div v-if="getKrSummary(root.objectiveId).length === 0" class="okr-map-popover-empty">暂无关键结果</div>
+                <div v-else class="okr-map-popover-kr">
+                  <div v-for="kr in getKrSummary(root.objectiveId)" :key="kr.keyResultId" class="okr-map-popover-kr-item">
+                    <span class="okr-map-popover-kr-title">{{ kr.title }}</span>
+                    <span class="okr-map-popover-kr-progress">{{ formatProgress(kr.progress) }}%</span>
+                  </div>
                 </div>
               </template>
               <div
@@ -241,6 +255,7 @@
                 placement="right"
                 trigger="hover"
                 overlayClassName="okr-map-popover"
+                @visibleChange="(visible) => handlePopoverVisible(child.objectiveId, visible)"
               >
                 <template #content>
                   <div class="okr-map-popover-title">{{ child.title }}</div>
@@ -267,6 +282,15 @@
                   <div class="okr-map-popover-row">
                     <span>对齐到</span>
                     <span>{{ root.ownerName || '未指定' }}</span>
+                  </div>
+                  <div class="okr-map-popover-divider"></div>
+                  <div class="okr-map-popover-subtitle">关键结果</div>
+                  <div v-if="getKrSummary(child.objectiveId).length === 0" class="okr-map-popover-empty">暂无关键结果</div>
+                  <div v-else class="okr-map-popover-kr">
+                    <div v-for="kr in getKrSummary(child.objectiveId)" :key="kr.keyResultId" class="okr-map-popover-kr-item">
+                      <span class="okr-map-popover-kr-title">{{ kr.title }}</span>
+                      <span class="okr-map-popover-kr-progress">{{ formatProgress(kr.progress) }}%</span>
+                    </div>
                   </div>
                 </template>
                 <div
@@ -346,6 +370,7 @@
   const collapsedChildren = ref(new Set());
   const expandedSuggestion = ref(null);
   const dismissedSuggestions = ref(new Set());
+  const detailMap = ref(new Map());
 
   async function queryPeriodList() {
     try {
@@ -529,6 +554,36 @@
       default:
         return 'is-normal';
     }
+  }
+
+  async function handlePopoverVisible(objectiveId, visible) {
+    if (!visible) {
+      return;
+    }
+    const state = detailMap.value.get(objectiveId);
+    if (state?.loaded || state?.loading) {
+      return;
+    }
+    detailMap.value.set(objectiveId, { loading: true, loaded: false, list: [] });
+    try {
+      const result = await okrApi.getObjectiveDetail(objectiveId);
+      detailMap.value.set(objectiveId, {
+        loading: false,
+        loaded: true,
+        list: result.data?.keyResultList || [],
+      });
+    } catch (e) {
+      smartSentry.captureError(e);
+      detailMap.value.set(objectiveId, { loading: false, loaded: true, list: [] });
+    }
+  }
+
+  function getKrSummary(objectiveId) {
+    const state = detailMap.value.get(objectiveId);
+    if (!state?.list) {
+      return [];
+    }
+    return state.list.slice(0, 3);
   }
 
   function formatProgress(value) {
@@ -1184,6 +1239,46 @@
     font-size: 12px;
     color: #595959;
     margin-bottom: 4px;
+  }
+
+  .okr-map-popover-divider {
+    height: 1px;
+    background: #f0f0f0;
+    margin: 8px 0;
+  }
+
+  .okr-map-popover-subtitle {
+    font-size: 12px;
+    color: #8c8c8c;
+    margin-bottom: 6px;
+  }
+
+  .okr-map-popover-empty {
+    font-size: 12px;
+    color: #bfbfbf;
+  }
+
+  .okr-map-popover-kr {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .okr-map-popover-kr-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    color: #595959;
+  }
+
+  .okr-map-popover-kr-title {
+    color: #262626;
+  }
+
+  .okr-map-popover-kr-progress {
+    color: #1677ff;
+    font-weight: 600;
   }
 
   .okr-map-grandchildren {
