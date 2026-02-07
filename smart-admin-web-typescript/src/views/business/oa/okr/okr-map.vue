@@ -75,35 +75,77 @@
     </div>
 
     <div class="okr-map-suggestions">
-      <div class="okr-map-suggestion-card">
+      <div v-if="!isSuggestionDismissed('risk')" class="okr-map-suggestion-card">
         <div class="okr-map-suggestion-header">
           <span class="okr-map-suggestion-title">建议关注</span>
-          <a-button type="link" size="small">忽略</a-button>
+          <a-button type="link" size="small" @click="dismissSuggestion('risk')">忽略</a-button>
         </div>
         <div class="okr-map-suggestion-body">
           有 <strong>{{ riskObjectiveCount }}</strong> 个目标处于有风险或延期状态
         </div>
         <div class="okr-map-suggestion-meta">建议：关注风险目标并及时对齐资源</div>
+        <div class="okr-map-suggestion-toggle" @click="toggleSuggestion('risk')">
+          {{ expandedSuggestion === 'risk' ? '收起' : '查看详情' }}
+        </div>
+        <div v-if="expandedSuggestion === 'risk'" class="okr-map-suggestion-detail">
+          <div v-if="riskObjectiveList.length === 0" class="okr-map-suggestion-empty">暂无风险目标</div>
+          <div v-else class="okr-map-suggestion-items">
+            <div v-for="item in riskObjectiveList" :key="item.objectiveId" class="okr-map-suggestion-item">
+              <span class="okr-map-suggestion-name">{{ item.title }}</span>
+              <span class="okr-map-suggestion-owner">{{ item.ownerName || '未指定' }}</span>
+              <span class="okr-map-suggestion-progress">{{ formatProgress(item.progress) }}%</span>
+              <a-button type="link" size="small" @click="toDetailById(item.objectiveId)">查看</a-button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="okr-map-suggestion-card">
+      <div v-if="!isSuggestionDismissed('unaligned')" class="okr-map-suggestion-card">
         <div class="okr-map-suggestion-header">
           <span class="okr-map-suggestion-title">建议关注</span>
-          <a-button type="link" size="small">忽略</a-button>
+          <a-button type="link" size="small" @click="dismissSuggestion('unaligned')">忽略</a-button>
         </div>
         <div class="okr-map-suggestion-body">
           有 <strong>{{ unalignedObjectiveCount }}</strong> 个目标尚未对齐
         </div>
         <div class="okr-map-suggestion-meta">建议：尽快建立对齐关系，避免目标偏移</div>
+        <div class="okr-map-suggestion-toggle" @click="toggleSuggestion('unaligned')">
+          {{ expandedSuggestion === 'unaligned' ? '收起' : '查看详情' }}
+        </div>
+        <div v-if="expandedSuggestion === 'unaligned'" class="okr-map-suggestion-detail">
+          <div v-if="unalignedObjectiveList.length === 0" class="okr-map-suggestion-empty">暂无未对齐目标</div>
+          <div v-else class="okr-map-suggestion-items">
+            <div v-for="item in unalignedObjectiveList" :key="item.objectiveId" class="okr-map-suggestion-item">
+              <span class="okr-map-suggestion-name">{{ item.title }}</span>
+              <span class="okr-map-suggestion-owner">{{ item.ownerName || '未指定' }}</span>
+              <span class="okr-map-suggestion-progress">{{ formatProgress(item.progress) }}%</span>
+              <a-button type="link" size="small" @click="toDetailById(item.objectiveId)">查看</a-button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="okr-map-suggestion-card">
+      <div v-if="!isSuggestionDismissed('progress')" class="okr-map-suggestion-card">
         <div class="okr-map-suggestion-header">
           <span class="okr-map-suggestion-title">建议关注</span>
-          <a-button type="link" size="small">忽略</a-button>
+          <a-button type="link" size="small" @click="dismissSuggestion('progress')">忽略</a-button>
         </div>
         <div class="okr-map-suggestion-body">
           平均进度 <strong>{{ averageProgress }}%</strong>，低于 60%
         </div>
         <div class="okr-map-suggestion-meta">建议：检查阻塞项，推动阶段性里程碑完成</div>
+        <div class="okr-map-suggestion-toggle" @click="toggleSuggestion('progress')">
+          {{ expandedSuggestion === 'progress' ? '收起' : '查看详情' }}
+        </div>
+        <div v-if="expandedSuggestion === 'progress'" class="okr-map-suggestion-detail">
+          <div v-if="slowObjectiveList.length === 0" class="okr-map-suggestion-empty">暂无进度偏慢目标</div>
+          <div v-else class="okr-map-suggestion-items">
+            <div v-for="item in slowObjectiveList" :key="item.objectiveId" class="okr-map-suggestion-item">
+              <span class="okr-map-suggestion-name">{{ item.title }}</span>
+              <span class="okr-map-suggestion-owner">{{ item.ownerName || '未指定' }}</span>
+              <span class="okr-map-suggestion-progress">{{ formatProgress(item.progress) }}%</span>
+              <a-button type="link" size="small" @click="toDetailById(item.objectiveId)">查看</a-button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -300,6 +342,8 @@
   const zoomPercent = ref(100);
   const collapsedRoots = ref(new Set());
   const collapsedChildren = ref(new Set());
+  const expandedSuggestion = ref(null);
+  const dismissedSuggestions = ref(new Set());
 
   async function queryPeriodList() {
     try {
@@ -410,6 +454,9 @@
   });
   const unalignedObjectiveCount = computed(() => filteredFlatList.value.filter((item) => !item.parentObjectiveId).length);
   const riskObjectiveCount = computed(() => filteredFlatList.value.filter((item) => isRiskStatus(item.status)).length);
+  const riskObjectiveList = computed(() => filteredFlatList.value.filter((item) => isRiskStatus(item.status)).slice(0, 5));
+  const unalignedObjectiveList = computed(() => filteredFlatList.value.filter((item) => !item.parentObjectiveId).slice(0, 5));
+  const slowObjectiveList = computed(() => filteredFlatList.value.filter((item) => Number(item.progress || 0) < 60).slice(0, 5));
   const averageProgress = computed(() => {
     if (!filteredFlatList.value.length) {
       return 0;
@@ -550,6 +597,23 @@
 
   function resetFilter() {
     filterMode.value = 'all';
+  }
+
+  function toggleSuggestion(type) {
+    expandedSuggestion.value = expandedSuggestion.value === type ? null : type;
+  }
+
+  function dismissSuggestion(type) {
+    const next = new Set(dismissedSuggestions.value);
+    next.add(type);
+    dismissedSuggestions.value = next;
+    if (expandedSuggestion.value === type) {
+      expandedSuggestion.value = null;
+    }
+  }
+
+  function isSuggestionDismissed(type) {
+    return dismissedSuggestions.value.has(type);
   }
 
   function onNavChange() {
@@ -781,6 +845,52 @@
     margin-top: 6px;
     font-size: 12px;
     color: #8c8c8c;
+  }
+
+  .okr-map-suggestion-toggle {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #1677ff;
+    cursor: pointer;
+  }
+
+  .okr-map-suggestion-detail {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #ffd591;
+  }
+
+  .okr-map-suggestion-empty {
+    font-size: 12px;
+    color: #bfbfbf;
+  }
+
+  .okr-map-suggestion-items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .okr-map-suggestion-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 8px;
+    align-items: center;
+    font-size: 12px;
+    color: #595959;
+  }
+
+  .okr-map-suggestion-name {
+    color: #262626;
+  }
+
+  .okr-map-suggestion-owner {
+    color: #8c8c8c;
+  }
+
+  .okr-map-suggestion-progress {
+    color: #262626;
+    font-weight: 600;
   }
 
   .okr-map-empty {
